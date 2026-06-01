@@ -21,6 +21,7 @@ It's a single self-contained `index.html` — no build step, no dependencies, fu
 - **Monte Carlo** — sweeps many random days for the P50/P95/worst distribution of coincident peak and demand charge, so you can size to a confidence level instead of one lucky run.
 - **Battery-sizing sweep** — plots a P95 metric vs battery size to find the diminishing-returns knee.
 - **Lab tab** — round-trip efficiency, reserve floor, solar, and demand-charge / time-of-use economics.
+- **Utility tariff picker (Lab)** — set demand-charge + TOU energy from a curated set of real US utility tariffs (from $0 CA subscription rates to ~$44/kW at DTE), so the cost cards reflect a real rate.
 
 ## Presets
 
@@ -32,6 +33,7 @@ It's a single self-contained `index.html` — no build step, no dependencies, fu
 ## Data & method notes
 
 - **Charge curves:** DC charging curves (SoC→kW) from **[EVKX.net](https://evkx.net)**, downsampled to 5% SoC steps. All credit to EVKX for the underlying data. The Denza Z9 GT curve is calibrated to a measured real-world flash session; the heavy-duty-truck and any synthetic curves are illustrations.
+- **Utility tariffs** are a curated subset of a national DCFC tariff dataset (demand $/kW + TOU energy); no-demand/subscription EV rates show $0 demand charge, since their cost is a fixed fee not modeled here.
 - **Sales weights** are approximate 2024–25 BEV registrations, used only to weight the random vehicle mix. The "~3–10 sessions per port/day" utilization anchor is a rough rule of thumb, not a cited figure. Refine both to taste.
 - This is a **teaching model**, not a vendor controller emulation: adaptive 5–60 s timestep; supply order solar→grid→battery; per-cabinet sharing then site-level throttle; recharge at the charge C-rate × round-trip efficiency. Solar, economics, and the longevity/duty-cycle figures are first-order.
 

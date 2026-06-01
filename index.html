@@ -297,8 +297,23 @@ function vcurve(v,socFrac){ const c=v.curve, s=Math.max(0,Math.min(100,socFrac*1
   return c[c.length-1][1]; }
 
 // ============================ CONFIG / PRESETS ============================
+// Real demand-charge + TOU energy rates curated from a national DCFC tariff dataset (ev-rates-analysis). dmd=$/kW monthly peak, on/off=$/kWh.
+const TARIFFS=[
+  {id:'pgebev2',label:'PG&E BEV-2 — CA (no demand)',dmd:0,on:0.42,off:0.18},
+  {id:'sceev8',label:'SCE TOU-EV-8 — CA (no demand)',dmd:0,on:0.36,off:0.11},
+  {id:'sdgeevhp',label:'SDG&E EV-HP — CA (no demand)',dmd:0,on:0.50,off:0.18},
+  {id:'gaevc2',label:'Georgia Power TOU-EVC-2 — GA',dmd:4.46,on:0.208,off:0.052},
+  {id:'xcelco',label:'Xcel S-EV — CO',dmd:8,on:0.10,off:0.05},
+  {id:'psegli',label:'PSEG Long Island EV — NY',dmd:8.22,on:0.102,off:0.051},
+  {id:'smud',label:'SMUD C&I — CA',dmd:11.41,on:0.234,off:0.122},
+  {id:'natl',label:'U.S. average C&I (reference)',dmd:15,on:0.11,off:0.07},
+  {id:'apse32',label:'APS E-32 — AZ',dmd:18,on:0.13,off:0.07},
+  {id:'evct30',label:'Eversource Rate 30 — CT',dmd:32.31,on:0.136,off:0.136},
+  {id:'evmag2',label:'Eversource G-2 — MA',dmd:33.95,on:0.015,off:0.015},
+  {id:'dted4',label:'DTE D4 — MI',dmd:43.76,on:0.040,off:0.031},
+];
 const BASE = {
-  market:'NA', vehicle:'mix',
+  market:'NA', vehicle:'mix', tariff:'custom',
   gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, siteCapKW:4000,
   bessKWh:400, bessCrate:10, bessChgCrate:1.5, rte:92, reserveSoC:10, startSoC:100,
   trafficMode:'poisson', carsPerDay:40, seed:7, horizonMin:120,
@@ -374,9 +389,10 @@ const SPEC = {
     {k:'nightEnd',l:'Quiet hours end',min:3,max:9,step:1,u:':00',tip:'Clock hour daytime traffic resumes.'},
     {k:'nightLevel',l:'Overnight traffic',min:0,max:50,step:2,u:'%',tip:'Arrivals during quiet hours as % of the daytime rate. Low = battery refills cheaply overnight.'},
     {g:'Economics', gtip:'Utility pricing, used for the cost cards on this tab.'},
+    {k:'tariff',type:'tariff',l:'Utility tariff',tip:'Real demand-charge + TOU energy rates from a national DCFC tariff dataset. Picking one sets the demand charge and energy prices below; the demand charge (per kW of monthly peak) is what a battery buys down. No-demand/subscription EV tariffs show $0 (their cost is a fixed fee not modeled here). Representative 4-9pm peak window.'},
     {k:'demandCharge',l:'Demand charge',min:0,max:60,step:1,u:'$/kW',tip:'Monthly fee per kW of peak grid draw — the big bill a battery helps avoid.'},
-    {k:'energyPrice',l:'Energy price (off-peak)',min:0.04,max:0.6,step:0.01,u:'$/kWh',tip:'Per-kWh grid energy cost outside the TOU peak window.'},
-    {k:'touPeakPrice',l:'Energy price (peak)',min:0.04,max:1.2,step:0.02,u:'$/kWh',tip:'Higher per-kWh cost during the TOU peak window.'},
+    {k:'energyPrice',l:'Energy price (off-peak)',min:0.01,max:0.6,step:0.01,u:'$/kWh',tip:'Per-kWh grid energy cost outside the TOU peak window.'},
+    {k:'touPeakPrice',l:'Energy price (peak)',min:0.01,max:1.2,step:0.02,u:'$/kWh',tip:'Higher per-kWh cost during the TOU peak window.'},
     {k:'touStart',l:'Peak price starts',min:0,max:23,step:1,u:'h',tip:'Clock hour the expensive TOU window begins.'},
     {k:'touEnd',l:'Peak price ends',min:0,max:23,step:1,u:'h',tip:'Clock hour the expensive TOU window ends.'},
   ]
@@ -624,6 +640,10 @@ function buildControls(){
       wrap.innerHTML=`<label><span>${item.l}${ic(item.tip)}</span></label><select data-k="vehicle">${vehicleOptions(cfg.market)}</select>`;
       const s=wrap.querySelector('select'); s.value=cfg.vehicle;
       s.addEventListener('change',e=>{ cfg.vehicle=e.target.value; deselectPreset(); run(); });
+    } else if(item.type==='tariff'){
+      wrap.innerHTML=`<label><span>${item.l}${ic(item.tip)}</span></label><select data-k="tariff"><option value="custom">Custom (set sliders)</option>${TARIFFS.map(t=>`<option value="${t.id}">${t.label}</option>`).join('')}</select>`;
+      const s=wrap.querySelector('select'); s.value=cfg.tariff;
+      s.addEventListener('change',e=>{ cfg.tariff=e.target.value; const t=TARIFFS.find(x=>x.id===cfg.tariff); if(t){cfg.demandCharge=t.dmd;cfg.energyPrice=t.off;cfg.touPeakPrice=t.on;} deselectPreset(); buildControls(); run(); });
     } else if(item.sel){
       wrap.innerHTML=`<label><span>${item.l}${ic(item.tip)}</span></label><select data-k="${item.k}">${item.sel.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select>`;
       const s=wrap.querySelector('select'); s.value=cfg[item.k];
@@ -631,7 +651,7 @@ function buildControls(){
     } else {
       wrap.innerHTML=`<label><span>${item.l}${ic(item.tip)}</span> <span class="val"></span></label><input type="range" min="${item.min}" max="${item.max}" step="${item.step}" data-k="${item.k}">`;
       const inp=wrap.querySelector('input'),val=wrap.querySelector('.val'); inp.value=cfg[item.k]; val.textContent=fmtVal(item,cfg[item.k]);
-      inp.addEventListener('input',e=>{ cfg[item.k]=parseFloat(e.target.value); val.textContent=fmtVal(item,cfg[item.k]); deselectPreset(); run(); });
+      inp.addEventListener('input',e=>{ cfg[item.k]=parseFloat(e.target.value); val.textContent=fmtVal(item,cfg[item.k]); if(['demandCharge','energyPrice','touPeakPrice','touStart','touEnd'].includes(item.k)){cfg.tariff='custom';const ts=document.querySelector('select[data-k="tariff"]');if(ts)ts.value='custom';} deselectPreset(); run(); });
     }
     host.appendChild(wrap);
   }
