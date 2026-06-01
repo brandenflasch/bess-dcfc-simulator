@@ -4,6 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Battery-Buffered DC Fast Charging — Site Simulator</title>
+<meta name="description" content="Open interactive simulator for battery-buffered DC fast-charging sites — real EV charge curves (EVKX.net), NA/EU sales-weighted vehicle mix, multiport power-sharing, and Monte-Carlo sizing.">
+<meta name="author" content="Branden Flasch">
+<meta property="og:title" content="Battery-Buffered DC Fast Charging — Site Simulator">
+<meta property="og:description" content="Model a battery-buffered charging site with real EV charge curves, NA/EU fleets, and Monte-Carlo sizing. Made by Branden Flasch.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://brandenflasch.github.io/bess-dcfc-simulator/">
+<meta property="og:image" content="https://brandenflasch.github.io/bess-dcfc-simulator/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Battery-Buffered DC Fast Charging — Site Simulator">
+<meta name="twitter:description" content="Real EV charge curves · NA/EU fleets · Monte-Carlo sizing. Made by Branden Flasch.">
+<meta name="twitter:image" content="https://brandenflasch.github.io/bess-dcfc-simulator/og-image.png">
 <style>
   :root{
     --bg:#F7F5F1; --surface:#FFFFFF; --ink:#1A1A1A; --muted:#6A655D; --line:#E6E0D7;
@@ -47,8 +58,8 @@
   .ctl select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-family:var(--sans);font-size:13px;background:var(--surface)}
   .info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--chip);color:var(--muted);font-size:9.5px;font-weight:800;font-style:normal;cursor:help;position:relative;border:1px solid var(--line);margin-left:5px;vertical-align:middle;flex:none}
   .info:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .info:hover::after{content:attr(data-tip);position:absolute;bottom:160%;left:50%;transform:translateX(-50%);background:#211E1B;color:#F4EEE6;padding:9px 12px;border-radius:9px;font-size:11.5px;font-weight:500;font-style:normal;line-height:1.5;width:220px;z-index:300;box-shadow:0 10px 28px rgba(0,0,0,.3);pointer-events:none;text-align:left;letter-spacing:0;text-transform:none;white-space:normal}
-  .info:hover::before{content:'';position:absolute;bottom:160%;left:50%;transform:translate(-50%,100%);border:5px solid transparent;border-top-color:#211E1B;z-index:301}
+  .info:hover::after,.info:focus::after{content:attr(data-tip);position:absolute;bottom:160%;left:50%;transform:translateX(-50%);background:#211E1B;color:#F4EEE6;padding:9px 12px;border-radius:9px;font-size:11.5px;font-weight:500;font-style:normal;line-height:1.5;width:220px;z-index:300;box-shadow:0 10px 28px rgba(0,0,0,.3);pointer-events:none;text-align:left;letter-spacing:0;text-transform:none;white-space:normal}
+  .info:hover::before,.info:focus::before{content:'';position:absolute;bottom:160%;left:50%;transform:translate(-50%,100%);border:5px solid transparent;border-top-color:#211E1B;z-index:301}
   .lbl .info{width:13px;height:13px;font-size:9px}
   .presets{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:2px}
   .presets button{font:inherit;font-size:12px;font-weight:700;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
@@ -105,6 +116,26 @@
   .footbrand a{display:flex;align-items:center;gap:9px;text-decoration:none;font-weight:800;color:var(--ink);font-size:15px}
   .footbrand a:hover{color:var(--accent-deep)}
   .hidden{display:none!important}
+  @media(max-width:600px){
+    .wrap{padding:0 13px}
+    header{padding:22px 0 0}
+    body{font-size:15px}
+    header h1{font-size:25px}
+    .layout{padding:16px 0 40px;gap:14px}
+    .panel{padding:13px 14px}
+    .gauges{grid-template-columns:repeat(2,1fr);gap:8px}
+    .g .num{font-size:18px} .s .num{font-size:18px}
+    .mc-head{flex-direction:column;align-items:flex-start;gap:8px}
+    .mc-ctl{flex-wrap:wrap}
+    .mc-ctl input[type=range]{width:100%}
+    .mc-ctl select{flex:1 1 auto}
+    .tabs button{padding:10px 13px;font-size:13px}
+    .chartcard{padding:12px 9px 8px}
+    .chartcard .legend{gap:9px;font-size:10.5px}
+    .transport{flex-wrap:wrap}
+    .transport .time{margin-left:0;width:100%}
+    .info:hover::after,.info:focus::after{width:min(220px,74vw)}
+  }
 </style>
 </head>
 <body>
@@ -175,7 +206,7 @@
     </div>
 
     <div class="summary">
-      <div class="s hay"><div class="lbl">Buffer longevity <span class="info" data-tip="How long the battery can sustain the site's average busy-period output before draining = usable kWh ÷ (avg output − grid). The 'tank drains faster than it refills' test (after Chuck Hayward, mho EVs).">i</span></div><div class="num" id="sLong">—</div><small>at avg busy load</small></div>
+      <div class="s hay"><div class="lbl">Buffer longevity <span class="info" data-tip="How long the battery can sustain the site's average busy-period output before draining = usable kWh ÷ (avg output − grid). The 'tank drains faster than it refills' test.">i</span></div><div class="num" id="sLong">—</div><small>at avg busy load</small></div>
       <div class="s hay"><div class="lbl">Max duty cycle <span class="info" data-tip="Largest fraction of time the site can charge at its average busy output without the buffer running dry = grid ÷ avg output. If real utilization exceeds this for long, the battery empties.">i</span></div><div class="num" id="sDuty">—</div><small>grid ÷ avg output</small></div>
       <div class="s"><div class="lbl">Avg busy output <span class="info" data-tip="Mean total site power delivered while at least one car is charging — the reference output for the longevity and duty-cycle figures.">i</span></div><div class="num" id="sRef">—</div><small>reference output</small></div>
     </div>
@@ -224,7 +255,7 @@
     <div class="notes">
       <h3>How to read it <span class="tag">teaching model</span></h3>
       <ul id="noteList"></ul>
-      <p style="margin:.3em 0 0;font-size:12px;color:var(--muted)">Adaptive timestep (5–60 s). Supply order solar→grid→battery; each charger cabinet shares its power across its ports; the battery fills the gap to per-cable & site caps and recharges from surplus at the charge C-rate × round-trip efficiency; throttle = proportional curtailment when demand &gt; available supply. Poisson arrivals (seeded, reproducible) occupy free ports; a busy site queues. Real DC charge curves from <a href="https://evkx.net" target="_blank" rel="noopener">EVKX.net</a> (SoC→kW); the Denza Z9 GT curve is calibrated to a measured Out-of-Spec flash session (10→97% in ~9 min); the heavy-duty-truck curve is a synthetic illustration. Longevity/duty-cycle framing after Chuck Hayward (mho EVs). A teaching model, not a vendor controller emulation.</p>
+      <p style="margin:.3em 0 0;font-size:12px;color:var(--muted)">Adaptive timestep (5–60 s). Supply order solar→grid→battery; each charger cabinet shares its power across its ports; the battery fills the gap to per-cable & site caps and recharges from surplus at the charge C-rate × round-trip efficiency; throttle = proportional curtailment when demand &gt; available supply. Poisson arrivals (seeded, reproducible) occupy free ports; a busy site queues. Real DC charge curves from <a href="https://evkx.net" target="_blank" rel="noopener">EVKX.net</a> (SoC→kW); the Denza Z9 GT curve is calibrated to a measured real-world flash session (10→97% in ~9 min); the heavy-duty-truck curve is a synthetic illustration. A teaching model, not a vendor controller emulation.</p>
     </div>
   </main>
 </div>
@@ -237,7 +268,7 @@
     </a>
     <a href="https://github.com/brandenflasch" target="_blank" rel="noopener" style="font-weight:600;font-size:13px">github.com/brandenflasch ↗</a>
   </div>
-  Battery-Buffered DC Fast Charging — Site Simulator · self-contained, offline. Charge curves: EVKX.net. Battery C-rate is the cell capability; operational discharge is capped by per-cable/site power. Solar, economics, and the longevity/duty-cycle figures are first-order teaching models.
+  Battery-Buffered DC Fast Charging — Site Simulator · v1.0 (2026-06-01) · self-contained, offline. Charge curves: EVKX.net. Battery C-rate is the cell capability; operational discharge is capped by per-cable/site power. Solar, economics, and the longevity/duty-cycle figures are first-order teaching models.
 </div></footer>
 
 <script>
@@ -307,7 +338,7 @@ const SPEC = {
     {k:'market',type:'market',l:'Market',tip:'Filters the vehicle list to models sold in North America or Europe.'},
     {k:'vehicle',type:'vehicle',l:'Vehicle',tip:'Pick a model (real EVKX charge curve) or Mixed fleet, which draws a random model per arriving car weighted by ~2024–25 sales share — popular models (e.g. Model Y) show up most.'},
     {k:'trafficMode',l:'Arrival pattern',sel:[['poisson','Random (realistic)'],['queue','Back-to-back (worst case)']],tip:'Random = realistic independent arrivals (use cars/day). Back-to-back = a new car the instant any port frees — the stress test.'},
-    {k:'carsPerDay',l:'Cars per day (site)',min:5,max:600,step:5,u:'/day',tip:'Cars the whole site serves per day, as random (Poisson) arrivals. Anchor: typical public DCFC does ~3–10 sessions per PORT per day; busy highway/urban ~12–20. Peak depends on clustering, not just the daily total.'},
+    {k:'carsPerDay',l:'Cars per day (site)',min:5,max:600,step:5,u:'/day',tip:'Cars the whole site serves per day, as random (Poisson) arrivals. Rough rule-of-thumb anchor (not a cited figure): public DCFC often sees ~3–10 sessions per PORT per day, busy sites ~12–20. Peak demand depends on clustering, not just the daily total.'},
     {k:'horizonMin',l:'Time simulated',min:30,max:1440,step:30,u:'min',fmt:'time',tip:'How long the run covers. Stretch toward 24h to see a full daily cycle; the timestep auto-coarsens for long runs.'},
   ],
   lab:[
@@ -453,7 +484,15 @@ function fmtClock(s){ if(cfg.horizonMin>=180){ const h=Math.floor(s/3600),m=Math
 function draw(){
   const W=cv.clientWidth,H=360,S=RES.S,n=S.t.length; ctx.clearRect(0,0,W,H);
   const padL=46,padR=44,padT=12,padB=24,pw=W-padL-padR,ph=H-padT-padB;
-  const yMax=Math.max(RES.sysMax*1.04, Math.max(...S.req)*1.05, cfg.gridKW*1.1);
+  // bin to <= pw columns so long (24h+) runs stay legible instead of a dense hash
+  const cols=Math.max(2,Math.min(n,Math.floor(pw))), bs=n/cols;
+  const T=[],SO=[],GR=[],BA=[],RC=[],SC=[],RQ=[],TH=[];
+  for(let c=0;c<cols;c++){ const i0=Math.floor(c*bs), i1=Math.min(n,Math.max(i0+1,Math.floor((c+1)*bs)));
+    let so=0,gr=0,ba=0,rc=0,sc=0,rq=0,th=0,k=0;
+    for(let i=i0;i<i1;i++){ so+=S.solar[i];gr+=S.grid[i];ba+=S.batt[i];rc+=S.rech[i];sc+=S.soc[i]; if(S.req[i]>rq)rq=S.req[i]; if(S.thr[i])th=1; k++; }
+    T.push(S.t[i0]);SO.push(so/k);GR.push(gr/k);BA.push(ba/k);RC.push(rc/k);SC.push(sc/k);RQ.push(rq);TH.push(th); }
+  const m=T.length;
+  const yMax=Math.max(RES.sysMax*1.04, Math.max(...RQ)*1.05, cfg.gridKW*1.1);
   const yMin=-Math.max(cfg.bessChgCrate*cfg.bessKWh*0.35, cfg.gridKW*0.5, 1);
   const horizon=S.t[n-1]+RES.dt, X=t=>padL+(t/horizon)*pw, YP=p=>padT+ph*(1-(p-yMin)/(yMax-yMin)), YS=s=>padT+ph*(1-s/100), y0=YP(0);
   ctx.font='11px '+getComputedStyle(document.body).fontFamily; const stepP=yMax>2500?1000:500;
@@ -461,20 +500,20 @@ function draw(){
   for(let p=0;p<=yMax;p+=stepP){const y=YP(p);ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(W-padR,y);ctx.stroke();ctx.textAlign='right';ctx.fillText((p/1000).toFixed(p%1000?1:0)+'MW',padL-6,y+3);}
   ctx.strokeStyle='rgba(255,255,255,.25)';ctx.beginPath();ctx.moveTo(padL,y0);ctx.lineTo(W-padR,y0);ctx.stroke();
   ctx.textAlign='left';ctx.fillStyle='rgba(217,163,0,.85)';[0,50,100].forEach(s=>ctx.fillText(s+'%',W-padR+5,YS(s)+3));
-  ctx.fillStyle='rgba(192,67,47,.16)';for(let i=0;i<n;i++)if(S.thr[i])ctx.fillRect(X(S.t[i]),padT,pw/n+0.6,ph);
-  function band(top,bot,col){ctx.fillStyle=col;ctx.beginPath();for(let i=0;i<n;i++){const x=X(S.t[i]);i?ctx.lineTo(x,YP(bot[i]+top[i])):ctx.moveTo(x,YP(bot[i]+top[i]));}for(let i=n-1;i>=0;i--)ctx.lineTo(X(S.t[i]),YP(bot[i]));ctx.closePath();ctx.fill();}
-  const z=new Array(n).fill(0);
-  band(S.solar,z,'rgba(224,168,46,.78)');
-  band(S.grid,S.solar,'rgba(62,124,177,.78)');
-  const gs=S.grid.map((g,i)=>g+S.solar[i]); band(S.batt,gs,'rgba(76,154,94,.82)');
-  ctx.fillStyle='rgba(43,179,192,.52)';ctx.beginPath();for(let i=0;i<n;i++){const x=X(S.t[i]);i?ctx.lineTo(x,YP(-S.rech[i])):ctx.moveTo(x,YP(-S.rech[i]));}for(let i=n-1;i>=0;i--)ctx.lineTo(X(S.t[i]),y0);ctx.closePath();ctx.fill();
-  ctx.strokeStyle='rgba(142,91,181,.95)';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.beginPath();for(let i=0;i<n;i++){const x=X(S.t[i]),y=YP(S.req[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();ctx.setLineDash([]);
-  ctx.strokeStyle='#D9A300';ctx.lineWidth=2.1;ctx.beginPath();for(let i=0;i<n;i++){const x=X(S.t[i]),y=YS(S.soc[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+  const colW=pw/m+0.6; ctx.fillStyle='rgba(192,67,47,.18)';for(let i=0;i<m;i++)if(TH[i])ctx.fillRect(X(T[i]),padT,colW,ph);
+  function band(top,bot,col){ctx.fillStyle=col;ctx.beginPath();for(let i=0;i<m;i++){const x=X(T[i]);i?ctx.lineTo(x,YP(bot[i]+top[i])):ctx.moveTo(x,YP(bot[i]+top[i]));}for(let i=m-1;i>=0;i--)ctx.lineTo(X(T[i]),YP(bot[i]));ctx.closePath();ctx.fill();}
+  const z=new Array(m).fill(0);
+  band(SO,z,'rgba(224,168,46,.78)');
+  band(GR,SO,'rgba(62,124,177,.78)');
+  const gs=GR.map((g,i)=>g+SO[i]); band(BA,gs,'rgba(76,154,94,.82)');
+  ctx.fillStyle='rgba(43,179,192,.52)';ctx.beginPath();for(let i=0;i<m;i++){const x=X(T[i]);i?ctx.lineTo(x,YP(-RC[i])):ctx.moveTo(x,YP(-RC[i]));}for(let i=m-1;i>=0;i--)ctx.lineTo(X(T[i]),y0);ctx.closePath();ctx.fill();
+  ctx.strokeStyle='rgba(142,91,181,.92)';ctx.lineWidth=1.4;ctx.setLineDash([5,4]);ctx.beginPath();for(let i=0;i<m;i++){const x=X(T[i]),y=YP(RQ[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle='#D9A300';ctx.lineWidth=2.1;ctx.beginPath();for(let i=0;i<m;i++){const x=X(T[i]),y=YS(SC[i]);i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
   ctx.strokeStyle='rgba(217,163,0,.32)';ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(padL,YS(cfg.reserveSoC));ctx.lineTo(W-padR,YS(cfg.reserveSoC));ctx.stroke();ctx.setLineDash([]);
   const cx=X(S.t[Math.min(cursor,n-1)]);ctx.strokeStyle='rgba(255,255,255,.55)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(cx,padT);ctx.lineTo(cx,padT+ph);ctx.stroke();
   ctx.fillStyle='rgba(244,238,230,.5)';ctx.textAlign='center';
-  const tickMin=cfg.horizonMin>720?240:(cfg.horizonMin>180?120:(cfg.horizonMin>90?30:15));
-  for(let m=0;m<=cfg.horizonMin;m+=tickMin){const x=X(m*60);ctx.fillText(cfg.horizonMin>=180?(m/60)+'h':m+'m',x,H-7);}
+  const hm=cfg.horizonMin, tickMin = hm>2880?720:hm>1440?360:hm>720?240:hm>180?120:hm>90?30:15;
+  for(let mm=0;mm<=hm;mm+=tickMin){const x=X(mm*60);ctx.fillText(hm>=180?(mm/60)+'h':mm+'m',x,H-7);}
 }
 function gauges(){ const S=RES.S,i=Math.min(cursor,S.t.length-1);
   document.getElementById('gSoc').innerHTML=Math.round(S.soc[i])+'<small>%</small>';
@@ -507,7 +546,7 @@ function summary(){ const st=RES.stats,e=RES.econ;
 function run(){ RES=simulate(cfg); cursor=0;
   const traffic = cfg.trafficMode==='poisson' ? ' · traffic ~'+Math.round(RES.arrAvgHr)+'/hr avg'+(+cfg.diurnal?(', '+Math.round(RES.arrPeakHr)+'/hr at rush'):'') : ' · back-to-back queue';
   document.getElementById('dtinfo').textContent='Δt '+RES.dt+'s · '+RES.S.t.length+' steps'+traffic;
-  draw();gauges();summary(); }
+  draw();gauges();summary(); document.querySelectorAll('.info:not([tabindex])').forEach(e=>e.tabIndex=0); }
 
 let raf2=null;
 function tick(){ if(!playing)return; cursor+=Math.max(1,Math.round(RES.S.t.length/300)); if(cursor>=RES.S.t.length){cursor=RES.S.t.length-1;playing=false;document.getElementById('play').textContent='▶ Play';} draw();gauges(); if(playing)raf=requestAnimationFrame(tick); }
