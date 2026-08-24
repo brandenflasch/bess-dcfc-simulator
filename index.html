@@ -337,7 +337,7 @@ const TARIFFS=[
 const BASE = {
   market:'NA', vehicle:'mix', tariff:'custom',
   gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, siteCapKW:4000,
-  bessKWh:400, bessCrate:10, bessChgCrate:1.5, bessPcsKW:0, rte:92, reserveSoC:10, startSoC:100, battMode:'buffer',
+  bessKWh:400, bessCrate:10, bessChgCrate:1.5, bessPcsKW:0, bessAuxKW:0, rte:92, reserveSoC:10, startSoC:100, battMode:'buffer',
   trafficMode:'poisson', carsPerDay:40, kwhPerSession:38, seed:7, horizonMin:120,
   diurnal:1, startHour:0, amPeak:8, peakHour:17, peakMult:2.5, nightStart:22, nightEnd:6, nightLevel:8, solarKW:0,
   demandCharge:18, energyPrice:0.16, touPeakPrice:0.42, touStart:16, touEnd:21,
@@ -409,6 +409,7 @@ const SPEC = {
     {k:'rte',l:'Round-trip efficiency',min:75,max:99,step:1,u:'%',tip:'Fraction of energy surviving a charge→discharge cycle. 92% means ~8% lost as heat per cycle.'},
     {k:'startSoC',l:'Starting charge',min:10,max:100,step:5,u:'%',tip:'Battery state of charge at the start of the run.'},
     {k:'reserveSoC',l:'Reserve floor',min:0,max:50,step:5,u:'%',tip:'Minimum SoC the controller won\'t discharge below — protects cycle life and keeps headroom.'},
+    {k:'bessAuxKW',l:'Auxiliary draw',min:0,max:100,step:1,u:'kW',tip:'Constant house load the battery system itself consumes — thermal management, controls, fire suppression. It runs whether or not the pack is cycling, it crosses the meter, and it counts toward the billed peak. The model had no parasitic load at all, which flatters every battery. Take the number from the vendor datasheet; 0 restores the old behaviour. Ignored when there is no battery.'},
     {g:'Traffic & vehicles', gtip:'Arrivals, vehicle mix, and time-of-day shape.'},
     {k:'market',type:'market',l:'Market',tip:'Filters the vehicle list to NA or EU models.'},
     {k:'vehicle',type:'vehicle',l:'Vehicle',tip:'A specific model (real EVKX curve) or Mixed fleet — a random model per car, weighted by ~2024–25 BEV sales share in the chosen market.'},
@@ -497,7 +498,7 @@ function simulate(c,light){
     p.soc=VFIX.vStart+rnd()*(span-dSoC); p.target=p.soc+dSoC; }
   const S={t:[],soc:[],solar:[],grid:[],gridDraw:[],batt:[],dlv:[],req:[],thr:[],rech:[],act:[]};
   let done=0,thrSteps=0,busySteps=0,energy=0,minSoc=soc,dischg=0,peakActive=0,peakDemand=0;
-  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0;
+  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0,curtailedSolar=0,auxEnergy=0;
   // ---- demand metering ----
   // Utilities bill the demand charge on the highest AVERAGE power over a fixed interval
   // (15 or 30 min almost everywhere), not on an instantaneous spike. peakGrid is therefore a
@@ -530,7 +531,12 @@ function simulate(c,light){
     peakActive=Math.max(peakActive,active); peakDemand=Math.max(peakDemand,siteDemand);
     const solarNow=solarAt(hour,c.solarKW);
     const socE=(soc-floor)*E; const battAvail=Math.max(0,Math.min(disMax, socE/(dt/3600)));
-    const supply=solarNow+c.gridKW+battAvail;
+    // The battery's own auxiliaries (thermal management, controls) draw continuously and have
+    // first call on the service: they run whether or not the pack cycles. Everything downstream
+    // therefore sees a REDUCED grid allowance, which keeps gridUse <= gridKW by construction.
+    const auxKW = E>0 ? Math.max(0, Math.min(+c.gridKW, (+c.bessAuxKW)||0)) : 0;
+    const gridForLoad = Math.max(0, c.gridKW - auxKW);
+    const supply=solarNow+gridForLoad+battAvail;
     const dlv=Math.min(req,supply);
     const thr=active>0 && req>supply+1e-6; if(thr) thrSteps++;
     const solarUse=Math.min(dlv,solarNow);
@@ -546,10 +552,10 @@ function simulate(c,light){
     // A window with start == end is not a window: peakTOU reads "always on-peak" for it, which would
     // leave the battery discharging around the clock and never refilling. Fall back to buffer duty.
     const shift=c.battMode==='tou' && peakTOU && E>0 && +c.touStart!==+c.touEnd;
-    let battU=Math.max(0, need-c.gridKW);            // buffer duty — served in both modes
+    let battU=Math.max(0, need-gridForLoad);         // buffer duty — served in both modes
     if(shift){ const paced=socE/Math.max(dt/3600, touHoursLeft(hour,c.touStart,c.touEnd));
       battU=Math.min(battAvail, need, Math.max(battU, paced)); }
-    const gridUse=Math.max(0, need-battU);
+    const gridUse=Math.max(0, need-battU)+auxKW;
     // Billed peak the site reaches on LOAD alone, on the same interval the meter uses.
     // Tracks gridUse, never gridDraw, so the recharge can never ratchet its own ceiling.
     { const loadMean=(ldSum+gridUse)/dmdWin;
@@ -582,7 +588,10 @@ function simulate(c,light){
         const pacedFill=Math.max(0,(room/rte)/hrs)+solarLeft, freeFill=Math.max(0, allowDraw-gridUse);
         want=Math.min(want, Math.max(pacedFill, freeFill));
       }
-      rech=Math.min(want, solarLeft+gridLeft); gridRech=Math.max(0, rech-solarLeft); }
+      rech=Math.min(want, solarLeft+gridLeft); gridRech=Math.max(0, rech-solarLeft);
+      // Solar the site could not use and does not export: neither served a car nor entered the
+      // battery. Reported rather than silently dropped, so an oversized array is visible.
+      curtailedSolar += Math.max(0, solarLeft-Math.min(rech,solarLeft))*(dt/3600); }
     soc += E>0 ? ((rech*rte - battU)*(dt/3600))/E : 0; soc=Math.max(floor,Math.min(1,soc)); minSoc=Math.min(minSoc,soc); dischg+=battU*(dt/3600);
     const sc=req>0?dlv/req:0;
     for(let k=0;k<allPorts.length;k++){ const p=allPorts[k]; if(!p.busy) continue;
@@ -595,7 +604,7 @@ function simulate(c,light){
       metBuf.push(gridDraw); metSum+=gridDraw; while(metBuf.length>dmdWin-1) metSum-=metBuf.shift();
       ldBuf.push(gridUse);   ldSum+=gridUse;   while(ldBuf.length>dmdWin-1) ldSum-=ldBuf.shift();
       winSteps++; }
-    gridEnergy+=gridDraw*(dt/3600);
+    gridEnergy+=gridDraw*(dt/3600); auxEnergy+=auxKW*(dt/3600);
     energyCost+=gridDraw*(dt/3600)*(peakTOU?c.touPeakPrice:c.energyPrice);
     lostEnergy+=Math.max(0,req-dlv)*(dt/3600);
     if(!light){ S.t.push(t);S.soc.push(soc*100);S.solar.push(solarUse);S.grid.push(gridUse);S.gridDraw.push(gridDraw);S.batt.push(battU);S.dlv.push(dlv);S.req.push(req);S.thr.push(thr?1:0);S.rech.push(rech);S.act.push(active); }
@@ -609,7 +618,7 @@ function simulate(c,light){
   const dutyMax = refOut>0 ? Math.min(100, c.gridKW/refOut*100) : 100;
   return {S, dt, sysMax:c.siteCapKW, arrAvgHr:(c.carsPerDay||0)/24, arrPeakHr:lamBase*dPeak,
     stats:{done, energy, thrPct:busySteps?thrSteps/busySteps*100:0, minSoc:minSoc*100, cycles:E>0?dischg/E:0,
-      util:actSum/steps/totalPorts*100, totalPorts, installedKW, peakActive, peakDemand,
+      util:actSum/steps/totalPorts*100, totalPorts, installedKW, peakActive, peakDemand, curtailedSolar, auxEnergy,
       coincidence:installedKW?peakDemand/installedKW*100:0, refOut, longevityH, dutyMax},
     econ:{gridEnergy, peakGrid, peakInstant, demandIntervalMin:dmdRaw>0?dmdWin*dt/60:0, peakPartial, energyCost, demandCharge:peakGrid*c.demandCharge, lostEnergy}};
 }
@@ -688,7 +697,12 @@ function summary(){ const st=RES.stats,e=RES.econ;
 }
 function run(){ RES=simulate(cfg); cursor=0;
   const traffic = cfg.trafficMode==='poisson' ? ' · traffic ~'+Math.round(RES.arrAvgHr)+'/hr avg'+(+cfg.diurnal?(', '+Math.round(RES.arrPeakHr)+'/hr at rush'):'') : ' · back-to-back queue';
-  document.getElementById('dtinfo').textContent='Δt '+RES.dt+'s · '+RES.S.t.length+' steps'+traffic;
+  // A short run starts the pack at startSoC and never has to refill it, which flatters every
+  // battery: day 1 spends charge it did not have to buy back. Say so rather than let the reader
+  // draw a conclusion from a single unrepresentative day.
+  const shortRun = (+cfg.bessKWh>0) && (+cfg.horizonMin < 2880);
+  document.getElementById('dtinfo').textContent='Δt '+RES.dt+'s · '+RES.S.t.length+' steps'+traffic
+    + (shortRun ? ' · ⚠ under 48h: the pack starts at '+Math.round(+cfg.startSoC)+'% and is never fully refilled — set Time simulated to 48h+ for a steady state' : '');
   draw();gauges();summary(); document.querySelectorAll('.info:not([tabindex])').forEach(e=>e.tabIndex=0); }
 
 let raf2=null;
