@@ -1,3 +1,7 @@
+<!-- GENERATED FILE — do not edit.
+     Source: dcfc-site-planner/engines/simulator.html
+     Regenerate: node scripts/build-standalone.js --write
+     Editing this file directly will be overwritten and will fail the planner's build gate. -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -15,14 +19,32 @@
 <meta name="twitter:title" content="Battery-Buffered DC Fast Charging — Site Simulator">
 <meta name="twitter:description" content="Real EV charge curves · NA/EU fleets · Monte-Carlo sizing. Made by Branden Flasch.">
 <meta name="twitter:image" content="https://brandenflasch.github.io/bess-dcfc-simulator/og-image.png">
+<script>try{var t=(location.search.match(/[?&]theme=(dark|light)\b/)||[])[1];if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 <style>
   :root{
+    color-scheme:light;
     --bg:#F7F5F1; --surface:#FFFFFF; --ink:#1A1A1A; --muted:#6A655D; --line:#E6E0D7;
     --accent:#D97757; --accent-deep:#B85C3E; --grid:#3E7CB1; --batt:#4C9A5E; --rech:#2BB3C0;
     --req:#8E5BB5; --soc:#D9A300; --solar:#E0A82E; --bad:#C0432F; --chip:#F0EBE2; --panel:#211E1B; --panelink:#F4EEE6;
     --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace; --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     --shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(40,30,20,.07);
   }
+  /* Dark theme — warm palette anchored on #211E1B; monitors/chart (--panel) stay dark. */
+  :root[data-theme="dark"]{
+    color-scheme:dark;
+    --bg:#1A1714; --surface:#26221D; --ink:#F2EBDF; --muted:#A8A094; --line:#3A352E;
+    --chip:#322D26; --accent:#D97757; --accent-deep:#E69072; --bad:#E5705C;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+  }
+  /* hardcoded cream cards/text that don't flow through tokens */
+  html[data-theme="dark"] code, html[data-theme="dark"] .tag{color:var(--accent-deep)}
+  html[data-theme="dark"] .notes{color:var(--ink)}
+  html[data-theme="dark"] .econ{border-color:#4a4233;background:linear-gradient(180deg,#2b2720,#262017)}
+  html[data-theme="dark"] .hay{border-color:#433a52;background:linear-gradient(180deg,#272231,#221d2c)}
+  html[data-theme="dark"] .hay .num{color:#c4a8e0}
+  html[data-theme="dark"] .mc-hl{background:linear-gradient(180deg,#2a2520,#2e231d)}
+  html[data-theme="dark"] .g.thr .pill{background:rgba(108,192,138,.16);color:#7fd49a}
+  html[data-theme="dark"] .g.thr.on .pill{background:rgba(224,101,79,.22);color:#f0a08e}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.5}
   .wrap{max-width:1280px;margin:0 auto;padding:0 22px}
@@ -100,7 +122,7 @@
   .mc-card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:15px 18px;box-shadow:var(--shadow)}
   .mc-head{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;font-size:14px}
   .mc-ctl{display:flex;align-items:center;gap:10px;font-size:13px}
-  .mc-ctl input[type=range]{width:120px;accent-color:var(--accent)}
+  .mc-ctl input[type=range]{width:120px;accent-color:var(--accent);height:5px;background:transparent}
   .mc-ctl select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:var(--sans);background:var(--surface)}
   .mc-ctl button{font:inherit;font-weight:800;font-size:13px;padding:7px 16px;border-radius:9px;border:none;background:var(--accent);color:#fff;cursor:pointer}
   .mc-ctl button:disabled{opacity:.5;cursor:default}
@@ -169,7 +191,7 @@
   <main class="stage">
     <div class="gauges">
       <div class="g soc"><div class="lbl">Battery charge <span class="info" data-tip="Charge level of the buffer right now, at the cursor / play position on the chart.">i</span></div><div class="num" id="gSoc">—</div></div>
-      <div class="g ports"><div class="lbl">Ports in use <span class="info" data-tip="Cables charging a car right now, out of the total cables installed on site.">i</span></div><div class="num" id="gPorts">—</div></div>
+      <div class="g ports"><div class="lbl">Ports in use <span class="info" data-tip="Ports charging a car right now, out of the total ports installed on site.">i</span></div><div class="num" id="gPorts">—</div></div>
       <div class="g grid"><div class="lbl">From grid <span class="info" data-tip="Power flowing from the utility connection to vehicles at this instant.">i</span></div><div class="num" id="gGrid">—</div></div>
       <div class="g batt"><div class="lbl">From battery <span class="info" data-tip="Power the battery is sending to cars now. A negative value (−) means it is recharging instead of discharging.">i</span></div><div class="num" id="gBatt">—</div></div>
       <div class="g dlv"><div class="lbl">To vehicles <span class="info" data-tip="Total power reaching cars right now — solar + grid + battery combined.">i</span></div><div class="num" id="gDlv">—</div></div>
@@ -199,7 +221,7 @@
     <div class="summary">
       <div class="s"><div class="lbl">Cars charged <span class="info" data-tip="Sessions that reached ~97% charge during the run.">i</span></div><div class="num" id="sSess">—</div><small>finished sessions</small></div>
       <div class="s"><div class="lbl">Energy delivered <span class="info" data-tip="Total energy put into vehicles over the whole simulated window.">i</span></div><div class="num" id="sEnergy">—</div><small>to vehicles</small></div>
-      <div class="s"><div class="lbl">Site utilization <span class="info" data-tip="Average share of cables busy over the run (mean cars charging ÷ cables installed).">i</span></div><div class="num" id="sUtil">—</div><small>avg busy / installed</small></div>
+      <div class="s"><div class="lbl">Site utilization <span class="info" data-tip="Average share of ports busy over the run (mean cars charging ÷ ports installed).">i</span></div><div class="num" id="sUtil">—</div><small>avg busy / installed</small></div>
       <div class="s"><div class="lbl">Coincident peak <span class="info" data-tip="Highest simultaneous site demand when sessions overlap, and that as a % of installed charger power — the coincidence (diversity) factor. Rarely 100%, because cars taper at different times.">i</span></div><div class="num" id="sCoinc">—</div><small>peak · % of nameplate</small></div>
       <div class="s"><div class="lbl">Time throttled <span class="info" data-tip="Share of busy time when demand exceeded available power (grid + battery), so cars were curtailed.">i</span></div><div class="num" id="sThr">—</div><small>of busy time</small></div>
       <div class="s"><div class="lbl">Min charge · cycles <span class="info" data-tip="Lowest battery level reached, and full-equivalent cycles = total throughput ÷ capacity over the run.">i</span></div><div class="num" id="sMin">—</div><small>low-water · full-equiv</small></div>
@@ -213,7 +235,7 @@
 
     <div class="summary econ-row hidden" id="econRow">
       <div class="s econ"><div class="lbl">Grid energy <span class="info" data-tip="Total energy imported from the utility over the run — both to cars directly and to recharge the battery.">i</span></div><div class="num" id="eGrid">—</div><small>cars + recharge</small></div>
-      <div class="s econ"><div class="lbl">Peak grid draw <span class="info" data-tip="Highest power pulled from the grid at any moment. This single number sets your monthly demand charge.">i</span></div><div class="num" id="ePeak">—</div><small>sets demand charge</small></div>
+      <div class="s econ"><div class="lbl">Billed demand <span class="info" data-tip="The number your demand charge is calculated on: the HIGHEST AVERAGE grid draw over the meter's interval (set it under Economics — 15 or 30 minutes on almost every tariff). It is not the instantaneous spike. DCFC load is spiky enough that the two differ a lot, and the instant is shown underneath because that is what sizes the service, the transformer and the switchgear.">i</span></div><div class="num" id="ePeak">—</div><small id="ePeakSub">sets demand charge</small></div>
       <div class="s econ"><div class="lbl">Energy cost <span class="info" data-tip="Grid energy × price over the window, using the time-of-use peak window for hours inside it.">i</span></div><div class="num" id="eEnergy">—</div><small>over the window</small></div>
       <div class="s econ"><div class="lbl">Demand charge <span class="info" data-tip="Monthly fee = peak grid draw × $/kW. A bigger or smarter battery lowers this by flattening the peak.">i</span></div><div class="num" id="eDemand">—</div><small>peak × $/kW</small></div>
       <div class="s econ"><div class="lbl">Throttled-away <span class="info" data-tip="Energy cars wanted but didn't get because the site was power-limited — a proxy for lost charging revenue.">i</span></div><div class="num" id="eLost">—</div><small>undelivered energy</small></div>
@@ -255,7 +277,7 @@
     <div class="notes">
       <h3>How to read it <span class="tag">teaching model</span></h3>
       <ul id="noteList"></ul>
-      <p style="margin:.3em 0 0;font-size:12px;color:var(--muted)">Adaptive timestep (5–60 s). Supply order solar→grid→battery; each charger cabinet shares its power across its ports; the battery fills the gap to per-cable & site caps and recharges from surplus at the charge C-rate × round-trip efficiency; throttle = proportional curtailment when demand &gt; available supply. Poisson arrivals (seeded, reproducible) occupy free ports; a busy site queues. Real DC charge curves from <a href="https://evkx.net" target="_blank" rel="noopener">EVKX.net</a> (SoC→kW); the Denza Z9 GT curve is calibrated to a measured real-world flash session (10→97% in ~9 min); the heavy-duty-truck curve is a synthetic illustration. A teaching model, not a vendor controller emulation.</p>
+      <p style="margin:.3em 0 0;font-size:12px;color:var(--muted)">Adaptive timestep (5–60 s). Supply order solar→grid→battery; each charger cabinet shares its power across its ports; the battery fills the gap to per-port & site caps and recharges from surplus at the charge C-rate × round-trip efficiency; throttle = proportional curtailment when demand &gt; available supply. Poisson arrivals (seeded, reproducible) occupy free ports; a busy site queues. Real DC charge curves from <a href="https://evkx.net" target="_blank" rel="noopener">EVKX.net</a> (SoC→kW); the Denza Z9 GT curve is calibrated to a measured real-world flash session (10→97% in ~9 min); the heavy-duty-truck curve is a synthetic illustration. A teaching model, not a vendor controller emulation.</p>
     </div>
   </main>
 </div>
@@ -268,7 +290,7 @@
     </a>
     <a href="https://github.com/brandenflasch" target="_blank" rel="noopener" style="font-weight:600;font-size:13px">github.com/brandenflasch ↗</a>
   </div>
-  Battery-Buffered DC Fast Charging — Site Simulator · v1.0 (2026-06-01) · self-contained, offline. Charge curves: EVKX.net. Battery C-rate is the cell capability; operational discharge is capped by per-cable/site power. Solar, economics, and the longevity/duty-cycle figures are first-order teaching models.
+  Battery-Buffered DC Fast Charging — Site Simulator · v1.0 (2026-06-01) · self-contained, offline. Charge curves: EVKX.net. Battery C-rate is the cell capability; operational discharge is capped by per-port/site power. Solar, economics, and the longevity/duty-cycle figures are first-order teaching models.
 </div></footer>
 
 <script>
@@ -286,7 +308,7 @@ const VEHICLES = {
   taycan:{name:'Porsche Taycan', mkts:['NA','EU'], wt:{NA:13,EU:15}, pack:82, curve:[[0,86],[5,254],[10,243],[15,254],[20,258],[25,261],[30,265],[35,264],[40,245],[45,246],[50,249],[55,208],[60,190],[65,172],[70,163],[75,121],[80,90],[85,44],[90,54],[95,25],[100,10]]},
   atto3: {name:'BYD Atto 3', mkts:['EU'], wt:{EU:25}, pack:58, curve:[[0,60],[5,84],[10,84],[15,85],[20,86],[25,85],[30,85],[35,85],[40,85],[45,84],[50,84],[55,83],[60,81],[65,55],[70,57],[75,57],[80,57],[85,56],[90,32],[95,32],[100,16]]},
   hummer:{name:'GMC Hummer EV (225 kWh)', mkts:['NA'], wt:{NA:6}, pack:225, curve:[[0,150],[5,344],[10,338],[15,340],[20,342],[25,341],[30,338],[35,327],[40,294],[45,275],[50,257],[55,252],[60,255],[65,223],[70,115],[75,74],[80,45],[85,50],[90,51],[95,31],[100,15]]},
-  denza:{name:'Denza Z9 GT (10→97% ~9 min)', mkts:['EU'], nomix:1, pack:110, curve:[[0,200],[5,650],[10,1000],[15,960],[20,900],[25,870],[30,850],[35,830],[40,810],[45,800],[50,790],[55,760],[60,730],[65,660],[70,600],[75,540],[80,480],[85,500],[90,430],[95,260],[100,90]]},
+  denza:{name:'Denza Z9 GT (10→97% ~9 min)', mkts:['EU'], nomix:1, pack:122, curve:[[0,200],[5,650],[10,1000],[15,960],[20,900],[25,870],[30,850],[35,830],[40,810],[45,800],[50,790],[55,760],[60,730],[65,660],[70,600],[75,540],[80,480],[85,500],[90,430],[95,260],[100,90]]},
   truck: {name:'Heavy-duty truck (synthetic, 500 kWh)', mkts:['NA','EU'], nomix:1, pack:500, curve:[[0,350],[5,500],[10,500],[15,500],[20,500],[25,500],[30,500],[35,480],[40,460],[45,440],[50,420],[55,400],[60,380],[65,350],[70,320],[75,280],[80,240],[85,200],[90,150],[95,100],[100,50]]},
 };
 function marketList(mkt){ return Object.keys(VEHICLES).filter(k=>VEHICLES[k].mkts.includes(mkt)); }
@@ -315,60 +337,75 @@ const TARIFFS=[
 const BASE = {
   market:'NA', vehicle:'mix', tariff:'custom',
   gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, siteCapKW:4000,
-  bessKWh:400, bessCrate:10, bessChgCrate:1.5, rte:92, reserveSoC:10, startSoC:100,
-  trafficMode:'poisson', carsPerDay:40, seed:7, horizonMin:120,
-  diurnal:0, startHour:0, amPeak:8, peakHour:17, peakMult:2.5, nightStart:22, nightEnd:6, nightLevel:8, solarKW:0,
-  demandCharge:18, energyPrice:0.16, touPeakPrice:0.42, touStart:16, touEnd:21
+  bessKWh:400, bessCrate:10, bessChgCrate:1.5, bessPcsKW:0, rte:92, reserveSoC:10, startSoC:100, battMode:'buffer',
+  trafficMode:'poisson', carsPerDay:40, kwhPerSession:38, seed:7, horizonMin:120,
+  diurnal:1, startHour:0, amPeak:8, peakHour:17, peakMult:2.5, nightStart:22, nightEnd:6, nightLevel:8, solarKW:0,
+  demandCharge:18, energyPrice:0.16, touPeakPrice:0.42, touStart:16, touEnd:21,
+  demandIntervalMin:15
 };
 const PRESETS = {
   simple:{
-    flash:{...BASE, market:'EU', vehicle:'denza', gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, siteCapKW:4000, bessKWh:400, bessCrate:10, bessChgCrate:1.5, carsPerDay:30, horizonMin:240},
-    q400: {...BASE, market:'NA', vehicle:'mix', gridKW:980, chargers:4, cabinetKW:400, portsPerCharger:2, connectorMaxKW:400, siteCapKW:1600, bessKWh:500, bessCrate:3, bessChgCrate:1, carsPerDay:90, horizonMin:480},
+    q400: {...BASE, market:'NA', vehicle:'mix', gridKW:980, chargers:4, cabinetKW:400, portsPerCharger:2, connectorMaxKW:400, siteCapKW:1600, bessKWh:500, bessCrate:3, bessChgCrate:1, carsPerDay:130, horizonMin:1440},
     q200: {...BASE, market:'NA', vehicle:'mix', gridKW:300, chargers:2, cabinetKW:200, portsPerCharger:2, connectorMaxKW:200, siteCapKW:800, bessKWh:250, bessCrate:2, bessChgCrate:1, carsPerDay:40, horizonMin:480},
     low:  {...BASE, market:'NA', vehicle:'mix', gridKW:300, chargers:2, cabinetKW:400, portsPerCharger:2, connectorMaxKW:400, siteCapKW:800, bessKWh:300, bessCrate:2, carsPerDay:16, horizonMin:480},
+    teslav3:{...BASE, market:'NA', vehicle:'my', gridKW:750, chargers:2, cabinetKW:350, portsPerCharger:4, connectorMaxKW:250, siteCapKW:700, bessKWh:0, carsPerDay:90, horizonMin:1440},
+    teslav4:{...BASE, market:'NA', vehicle:'my', gridKW:1000, chargers:1, cabinetKW:1000, portsPerCharger:8, connectorMaxKW:500, siteCapKW:1000, bessKWh:0, carsPerDay:135, horizonMin:1440},
+    flash:{...BASE, market:'EU', vehicle:'denza', gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, siteCapKW:2000, bessKWh:400, bessCrate:10, bessChgCrate:1.25, carsPerDay:65, horizonMin:1440, kwhPerSession:100},
   },
   lab:{
-    flash:{...BASE, market:'EU', vehicle:'denza', horizonMin:240, gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, bessKWh:400, bessCrate:10},
-    q400: {...BASE, market:'NA', vehicle:'mix', gridKW:980, chargers:4, cabinetKW:400, portsPerCharger:2, connectorMaxKW:400, siteCapKW:1600, bessKWh:500, bessCrate:3, bessChgCrate:1, carsPerDay:90, horizonMin:1440, diurnal:1, demandCharge:20},
+    q400: {...BASE, market:'NA', vehicle:'mix', gridKW:980, chargers:4, cabinetKW:400, portsPerCharger:2, connectorMaxKW:400, siteCapKW:1600, bessKWh:500, bessCrate:3, bessChgCrate:1, carsPerDay:130, horizonMin:1440, diurnal:1, demandCharge:20},
     solar:{...BASE, market:'NA', vehicle:'mix', horizonMin:1440, diurnal:1, carsPerDay:80, solarKW:600, bessKWh:600, chargers:4, cabinetKW:400, portsPerCharger:2, connectorMaxKW:400, siteCapKW:1600, gridKW:400},
     fleet:{...BASE, market:'NA', vehicle:'truck', trafficMode:'queue', gridKW:300, chargers:4, cabinetKW:350, portsPerCharger:1, connectorMaxKW:350, siteCapKW:1400, bessKWh:600, bessCrate:2, bessChgCrate:1, horizonMin:240, demandCharge:20},
+    teslav3:{...BASE, market:'NA', vehicle:'my', gridKW:750, chargers:2, cabinetKW:350, portsPerCharger:4, connectorMaxKW:250, siteCapKW:700, bessKWh:0, carsPerDay:90, horizonMin:1440},
+    teslav4:{...BASE, market:'NA', vehicle:'my', gridKW:1000, chargers:1, cabinetKW:1000, portsPerCharger:8, connectorMaxKW:500, siteCapKW:1000, bessKWh:0, carsPerDay:135, horizonMin:1440},
+    flash:{...BASE, market:'EU', vehicle:'denza', gridKW:500, chargers:1, cabinetKW:2000, portsPerCharger:2, connectorMaxKW:1000, siteCapKW:2000, bessKWh:400, bessCrate:10, bessChgCrate:1.25, carsPerDay:65, horizonMin:1440, kwhPerSession:100},
   }
 };
-const PNAMES={flash:'BYD Flash 2.0',q400:'4× 400 kW',q200:'2× 200 kW',low:'Low utilization',solar:'Solar + BESS',fleet:'Heavy-duty fleet'};
+const PNAMES={flash:'BYD Flash 2.0',q400:'4× 400 kW',q200:'2× 200 kW',low:'Low utilization',solar:'Solar + BESS',fleet:'Heavy-duty fleet',teslav3:'Tesla V3 (8-stall)',teslav4:'Tesla V4 (8-stall)'};
+const DEFAULTP={simple:'q400',lab:'q400'};  // preset selected on load
 
 const SPEC = {
   simple:[
-    {g:'Chargers', gtip:'The charging hardware on site. Each charger is a power cabinet feeding one or more cables (ports), sharing its power among them.'},
-    {k:'gridKW',l:'Grid connection',min:10,max:1600,step:10,u:'kW',tip:'Usable continuous power from the utility (kVA × power factor). The battery supplies anything cars need above this.'},
+    {g:'Chargers', gtip:'The charging hardware on site. Each charger is a power cabinet feeding one or more ports, sharing its power among them.'},
+    {k:'gridKW',l:'Grid connection',min:10,max:10000,step:10,u:'kW',tip:'Usable continuous power from the utility (kVA × power factor). The battery supplies anything cars need above this.'},
     {k:'chargers',l:'Chargers on site',min:1,max:12,step:1,u:'',tip:'Number of charger power cabinets, each sharing its power across its own ports.'},
     {k:'cabinetKW',l:'Power per charger',min:150,max:2400,step:50,u:'kW',tip:'Max kW one cabinet can output, shared across its ports. e.g. a 400 kW dual-port unit.'},
-    {k:'portsPerCharger',l:'Ports per charger',min:1,max:4,step:1,u:'',tip:'Cables per cabinet. With 2 ports, two cars split the cabinet power; one car alone can use it all.'},
-    {k:'connectorMaxKW',l:'Max per cable',min:150,max:1500,step:50,u:'kW',tip:'Ceiling one cable can deliver to a single car, even if the cabinet has more to give.'},
-    {k:'siteCapKW',l:'Site power limit',min:200,max:6000,step:100,u:'kW',tip:'Overall electrical limit of the whole site (switchgear/transformer) across all chargers.'},
+    {k:'portsPerCharger',l:'Ports per charger',min:1,max:8,step:1,u:'',tip:'Ports per cabinet. With 2 ports, two cars split the cabinet power; one car alone can use it all.'},
+    {k:'connectorMaxKW',l:'Max per port',min:150,max:1500,step:50,u:'kW',tip:'Ceiling one port can deliver to a single car, even if the cabinet has more to give.'},
+    {k:'siteCapKW',l:'Site power limit',min:200,max:12000,step:100,u:'kW',tip:'Overall electrical limit of the whole site (switchgear/transformer) across all chargers.'},
     {g:'Battery buffer', gtip:'The on-site battery that covers demand the grid can\'t, then refills when the site is quiet.'},
     {k:'bessKWh',l:'Battery energy',min:50,max:4000,step:25,u:'kWh',tip:'Total usable energy in the buffer. Larger rides longer/busier periods before running empty.'},
     {k:'bessCrate',l:'Discharge speed (C-rate)',min:0.25,max:12,step:0.25,u:'C',tip:'Max battery output = C × kWh. A 400 kWh pack at 4C delivers 1,600 kW. High-power LFP/flash cells reach ~10C; most market BESS ≤ 2C.'},
     {k:'bessChgCrate',l:'Recharge speed (C-rate)',min:0.05,max:4,step:0.05,u:'C',tip:'How fast the battery refills from the grid = C × kWh. Sets recovery speed between cars and overnight.'},
+    {k:'battMode',l:'Battery strategy',sel:[['buffer','Buffer only (grid first)'],['tou','Also shift energy off-peak']],tip:'Buffer only = the battery covers just what the grid cannot, at any hour. It lowers your PEAK (demand charge) but not your energy price. Also shift energy off-peak = the battery additionally discharges through the expensive TOU window (4–9pm by default; adjustable in Advanced) and refuses to refill from the grid until that window ends — so the site buys those kWh at the cheap off-peak rate instead. It paces the discharge to last the whole window, so the grid still covers part of the load even at a high state of charge — that is deliberate, not a shortfall. Off-peak it also paces the REFILL, spreading it over the quiet hours instead of pulling the full C-rate at 9pm, except that it always refills at least as fast as the headroom under the peak the site already sets. Watch the throttle readout: charge spent on price is not there for a demand spike.'},
     {g:'Traffic & vehicles', gtip:'Who shows up and how often. Charge curves are real EVKX.net data.'},
     {k:'market',type:'market',l:'Market',tip:'Filters the vehicle list to models sold in North America or Europe.'},
     {k:'vehicle',type:'vehicle',l:'Vehicle',tip:'Pick a model (real EVKX charge curve) or Mixed fleet, which draws a random model per arriving car weighted by ~2024–25 sales share — popular models (e.g. Model Y) show up most.'},
     {k:'trafficMode',l:'Arrival pattern',sel:[['poisson','Random (realistic)'],['queue','Back-to-back (worst case)']],tip:'Random = realistic independent arrivals (use cars/day). Back-to-back = a new car the instant any port frees — the stress test.'},
     {k:'carsPerDay',l:'Cars per day (site)',min:5,max:600,step:5,u:'/day',tip:'Cars the whole site serves per day, as random (Poisson) arrivals. Rough rule-of-thumb anchor (not a cited figure): public DCFC often sees ~3–10 sessions per PORT per day, busy sites ~12–20. Peak demand depends on clustering, not just the daily total.'},
-    {k:'horizonMin',l:'Time simulated',min:30,max:1440,step:30,u:'min',fmt:'time',tip:'How long the run covers. Stretch toward 24h to see a full daily cycle; the timestep auto-coarsens for long runs.'},
+    {k:'kwhPerSession',l:'Energy per session (avg)',min:10,max:100,step:1,u:'kWh',tip:'Average energy added per charging session. Each car arrives at a RANDOM state of charge and tops up a random amount averaging this value (real public DCFC sessions are partial top-ups, not 10→100%). The random SoC window is sized so the average added equals this.'},
+    {k:'horizonMin',l:'Time simulated',min:30,max:4320,step:30,u:'min',fmt:'time',tip:'How long the run covers. Defaults to a full day; stretch up to 72h to watch the buffer recover over multiple days. The timestep auto-coarsens for long runs.'},
+    {g:'Overnight lull', gtip:'A quiet overnight window when few cars arrive — when the buffer refills cheaply. Set a ≥1-day run (Time simulated → 24h) to see it.'},
+    {k:'diurnal',l:'Time-of-day profile',sel:[[0,'Off — flat all day'],[1,'On — rush + overnight']],tip:'Off = same arrival rate around the clock. On = morning & evening rush peaks plus a quiet overnight trough.'},
+    {k:'nightStart',l:'Quiet hours start',min:18,max:23,step:1,u:':00',tip:'Clock hour the overnight lull begins.'},
+    {k:'nightEnd',l:'Quiet hours end',min:3,max:9,step:1,u:':00',tip:'Clock hour daytime traffic resumes.'},
+    {k:'nightLevel',l:'Overnight traffic',min:0,max:50,step:2,u:'%',tip:'Arrivals during quiet hours as % of the daytime rate. Low = battery refills cheaply overnight.'},
   ],
   lab:[
     {g:'Chargers & site', gtip:'Charging hardware and the overall site electrical limit.'},
-    {k:'gridKW',l:'Grid connection',min:10,max:2500,step:10,u:'kW',tip:'Usable continuous power from the utility. The battery covers car demand above this.'},
+    {k:'gridKW',l:'Grid connection',min:10,max:10000,step:10,u:'kW',tip:'Usable continuous power from the utility. The battery covers car demand above this.'},
     {k:'chargers',l:'Chargers on site',min:1,max:24,step:1,u:'',tip:'Number of charger cabinets, each sharing power across its ports.'},
     {k:'cabinetKW',l:'Power per charger',min:100,max:2400,step:25,u:'kW',tip:'Max kW one cabinet outputs, shared across its ports.'},
-    {k:'portsPerCharger',l:'Ports per charger',min:1,max:6,step:1,u:'',tip:'Cables per cabinet. Multiple cars on one cabinet split its power.'},
-    {k:'connectorMaxKW',l:'Max per cable',min:100,max:1500,step:25,u:'kW',tip:'Ceiling for a single cable to one car, regardless of spare cabinet power.'},
-    {k:'siteCapKW',l:'Site power limit',min:200,max:6000,step:100,u:'kW',tip:'Whole-site electrical limit across all chargers.'},
+    {k:'portsPerCharger',l:'Ports per charger',min:1,max:8,step:1,u:'',tip:'Ports per cabinet. Multiple cars on one cabinet split its power.'},
+    {k:'connectorMaxKW',l:'Max per port',min:100,max:1500,step:25,u:'kW',tip:'Ceiling for a single port to one car, regardless of spare cabinet power.'},
+    {k:'siteCapKW',l:'Site power limit',min:200,max:12000,step:100,u:'kW',tip:'Whole-site electrical limit across all chargers.'},
     {k:'solarKW',l:'On-site solar (peak)',min:0,max:3000,step:50,u:'kW',tip:'Peak PV output, modeled as a midday bell. Supplies cars first and recharges the battery free. Needs a ≥1-day window to show.'},
     {g:'Battery buffer', gtip:'Battery sizing, speed, efficiency, and operating limits.'},
     {k:'bessKWh',l:'Battery energy',min:50,max:10000,step:25,u:'kWh',tip:'Total usable buffer energy.'},
     {k:'bessCrate',l:'Discharge speed (C-rate)',min:0.25,max:16,step:0.25,u:'C',tip:'Max battery output = C × kWh.'},
     {k:'bessChgCrate',l:'Recharge speed (C-rate)',min:0.05,max:6,step:0.05,u:'C',tip:'Max refill rate from the grid = C × kWh.'},
+    {k:'bessPcsKW',l:'Inverter (PCS) limit',min:0,max:5000,step:25,u:'kW',fmt:'pcs',tip:'Hard power ceiling from the inverter, in BOTH directions, independent of pack size. Real quotes rate the PCS separately: a 2 MWh / 500 kW system is a normal product. Leave at 0 to derive power from the C-rates instead (the old behaviour, and what the presets use). Setting it also fixes the battery-size sweep: with power derived from the C-rate, a kWh sweep silently sweeps kW too, so the curve reads as "how much ENERGY do I need" while it is really measuring energy and power together.'},
+    {k:'battMode',l:'Battery strategy',sel:[['buffer','Buffer only (grid first)'],['tou','Also shift energy off-peak']],tip:'Buffer only = the battery supplies just the demand above the grid connection, at any hour — it buys down the DEMAND charge, not the energy price. Also shift energy off-peak = inside the peak window set below (Peak price starts / ends) the battery serves load ahead of the grid and stops refilling from the grid, so those kWh are bought at the off-peak rate. Discharge is paced to last the whole window, so the grid keeps supplying part of the load even at a high state of charge. Outside the window the refill is paced too — spread over the off-peak stretch — but never slower than the headroom under the load-driven grid peak, which is demand-neutral. The round-trip efficiency loss is charged as extra off-peak energy.'},
     {k:'rte',l:'Round-trip efficiency',min:75,max:99,step:1,u:'%',tip:'Fraction of energy surviving a charge→discharge cycle. 92% means ~8% lost as heat per cycle.'},
     {k:'startSoC',l:'Starting charge',min:10,max:100,step:5,u:'%',tip:'Battery state of charge at the start of the run.'},
     {k:'reserveSoC',l:'Reserve floor',min:0,max:50,step:5,u:'%',tip:'Minimum SoC the controller won\'t discharge below — protects cycle life and keeps headroom.'},
@@ -377,6 +414,7 @@ const SPEC = {
     {k:'vehicle',type:'vehicle',l:'Vehicle',tip:'A specific model (real EVKX curve) or Mixed fleet — a random model per car, weighted by ~2024–25 BEV sales share in the chosen market.'},
     {k:'trafficMode',l:'Arrival pattern',sel:[['poisson','Random (realistic)'],['queue','Back-to-back (worst case)']],tip:'Random = realistic arrivals; Back-to-back = a car waiting the instant any port frees.'},
     {k:'carsPerDay',l:'Cars per day (site)',min:5,max:1200,step:5,u:'/day',tip:'Cars per day across the site. Anchor: ~3–10 per PORT per day typical, ~12–20 busy. With the time-of-day profile On, the same total is redistributed without changing the count.'},
+    {k:'kwhPerSession',l:'Energy per session (avg)',min:10,max:100,step:1,u:'kWh',tip:'Average energy added per charging session. Each car arrives at a RANDOM state of charge and tops up a random amount averaging this value (real public DCFC sessions are partial top-ups, not 10→100%). The random SoC window is sized so the average added equals this.'},
     {k:'diurnal',l:'Time-of-day profile',sel:[[0,'Off — flat all day'],[1,'On — rush + overnight']],tip:'Off = same rate around the clock. On = morning & evening rush peaks plus a quiet overnight trough.'},
     {k:'seed',l:'Random seed',min:1,max:99,step:1,u:'',tip:'Seeds arrivals and the vehicle mix. Change for a different-but-likely day; same seed reproduces the run.'},
     {k:'horizonMin',l:'Time simulated',min:30,max:4320,step:30,u:'min',fmt:'time',tip:'Run length. Set 24–72h to watch the buffer recover each night.'},
@@ -391,6 +429,7 @@ const SPEC = {
     {g:'Economics', gtip:'Utility pricing, used for the cost cards on this tab.'},
     {k:'tariff',type:'tariff',l:'Utility tariff',tip:'Real demand-charge + TOU energy rates from a national DCFC tariff dataset. Picking one sets the demand charge and energy prices below; the demand charge (per kW of monthly peak) is what a battery buys down. No-demand/subscription EV tariffs show $0 (their cost is a fixed fee not modeled here). Representative 4-9pm peak window.'},
     {k:'demandCharge',l:'Demand charge',min:0,max:60,step:1,u:'$/kW',tip:'Monthly fee per kW of peak grid draw — the big bill a battery helps avoid.'},
+    {k:'demandIntervalMin',l:'Demand interval',sel:[[0,'Instantaneous (not how meters bill)'],[15,'15 min'],[30,'30 min'],[60,'60 min']],tip:'Utilities bill the demand charge on the HIGHEST AVERAGE power over a fixed interval — almost always 15 or 30 minutes — not on an instantaneous spike. DCFC load is spiky, so the difference is large: a profile peaking at 967 kW for a few seconds can bill at 669 kW on a 15-minute meter. Pick the interval your tariff states. "Instantaneous" is not a real billing basis; it is here to reproduce the old behaviour and to size switchgear, which does care about the instant.'},
     {k:'energyPrice',l:'Energy price (off-peak)',min:0.01,max:0.6,step:0.01,u:'$/kWh',tip:'Per-kWh grid energy cost outside the TOU peak window.'},
     {k:'touPeakPrice',l:'Energy price (peak)',min:0.01,max:1.2,step:0.02,u:'$/kWh',tip:'Higher per-kWh cost during the TOU peak window.'},
     {k:'touStart',l:'Peak price starts',min:0,max:23,step:1,u:'h',tip:'Clock hour the expensive TOU window begins.'},
@@ -413,13 +452,16 @@ const NOTES = {
 };
 
 let TAB='simple';
-let CFG = {simple:{...PRESETS.simple.flash}, lab:{...PRESETS.lab.flash}};
+let CFG = {simple:{...PRESETS.simple[DEFAULTP.simple]}, lab:{...PRESETS.lab[DEFAULTP.lab]}};
 let cfg = CFG.simple;
 
 // ============================ ENGINE ============================
 const VFIX={vStart:0.10, vTarget:0.97};
 function mulberry32(a){ return function(){ a|=0;a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 function solarAt(hour, peak){ if(peak<=0) return 0; const x=(hour-12)/6; return peak*Math.max(0, Math.exp(-x*x*2.2)); }
+// Hours from `hour` to the end of the TOU peak window. Handles a window that wraps midnight.
+// Only meaningful while `hour` is inside the window; the dispatch never calls it outside.
+function touHoursLeft(hour,a,b){ if(!(Number.isFinite(+a)&&Number.isFinite(+b))||+a===+b) return 0; let d=+b-hour; if(d<=0) d+=24; return d; }
 function diurnalFactor(c,hour){ if(!+c.diurnal) return 1;
   const inNight = c.nightStart<c.nightEnd ? (hour>=c.nightStart&&hour<c.nightEnd) : (hour>=c.nightStart||hour<c.nightEnd);
   if(inNight) return c.nightLevel/100;
@@ -430,7 +472,13 @@ function simulate(c,light){
   const horizonSec=c.horizonMin*60;
   const dt=Math.min(60, Math.max(5, Math.round(horizonSec/3500/5)*5));
   const steps=Math.floor(horizonSec/dt);
-  const E=c.bessKWh, floor=c.reserveSoC/100, disMax=c.bessCrate*E, chgMax=c.bessChgCrate*E, rte=c.rte/100;
+    // Battery POWER is the inverter (PCS) rating, which real quotes state separately from the
+  // pack. bessPcsKW:0 derives it from the C-rate, which is what every preset does and what the
+  // model did before this existed. Setting it decouples the two, so a 2 MWh / 500 kW system can
+  // be entered as written and a kWh sweep stops silently sweeping kW along with it.
+  const E=c.bessKWh, floor=c.reserveSoC/100, rte=c.rte/100;
+  const pcs=(+c.bessPcsKW>0)?+c.bessPcsKW:Infinity;
+  const disMax=Math.min(c.bessCrate*E, pcs), chgMax=Math.min(c.bessChgCrate*E, pcs);
   const rnd=mulberry32(c.seed*2654435761>>>0);
   let soc=c.startSoC/100;
   const portsPer=Math.max(1,Math.round(c.portsPerCharger)), totalPorts=c.chargers*portsPer, installedKW=c.chargers*c.cabinetKW;
@@ -440,10 +488,30 @@ function simulate(c,light){
   const cabs=[]; for(let ci=0;ci<c.chargers;ci++){ const cc=[]; for(let pi=0;pi<portsPer;pi++) cc.push({busy:false,soc:0,veh:null}); cabs.push(cc); }
   const allPorts=cabs.flat();
   function reqOf(p){ if(!p.busy) return 0; return Math.min(vcurve(p.veh,p.soc), c.connectorMaxKW); }
-  function startSession(p){ p.busy=true; p.veh=pickV(); p.soc=VFIX.vStart; }
-  const S={t:[],soc:[],solar:[],grid:[],batt:[],dlv:[],req:[],thr:[],rech:[],act:[]};
+  function startSession(p){ p.busy=true; p.veh=pickV();
+    // Random session: add a random amount of energy averaging c.kwhPerSession, in a random
+    // SoC window within [vStart,vTarget]. Energy/session ~ uniform[0.5,1.5]*avg (mean=avg), so
+    // the average kWh added == the slider; the start SoC is random and the window slides to fit.
+    var span=VFIX.vTarget-VFIX.vStart, avg=+c.kwhPerSession||38;
+    var dSoC=Math.min(span, (avg*(0.5+rnd()))/p.veh.pack);
+    p.soc=VFIX.vStart+rnd()*(span-dSoC); p.target=p.soc+dSoC; }
+  const S={t:[],soc:[],solar:[],grid:[],gridDraw:[],batt:[],dlv:[],req:[],thr:[],rech:[],act:[]};
   let done=0,thrSteps=0,busySteps=0,energy=0,minSoc=soc,dischg=0,peakActive=0,peakDemand=0;
-  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0;
+  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0;
+  // ---- demand metering ----
+  // Utilities bill the demand charge on the highest AVERAGE power over a fixed interval
+  // (15 or 30 min almost everywhere), not on an instantaneous spike. peakGrid is therefore a
+  // rolling interval mean of the metered draw; peakInstant keeps the instantaneous maximum,
+  // which is the number that sizes the service and the switchgear.
+  //   metBuf/metSum — the PREVIOUS (dmdWin-1) metered draws, so the window ending at this step
+  //                   is metSum + this step's draw.
+  //   ldBuf/ldSum   — the same window over the LOAD-only draw, giving peakLoadInt: the billed peak
+  //                   the site reaches on load alone. The refill fills under it (see below).
+  // 0 = bill the instant (one timestep). Not a real billing basis; it reproduces the old
+  // behaviour and sizes switchgear. Note the ||15 idiom cannot be used here — 0 is meaningful.
+  const dmdRaw=(c.demandIntervalMin===undefined||c.demandIntervalMin===null||c.demandIntervalMin==='')?15:+c.demandIntervalMin;
+  const dmdWin=dmdRaw>0 ? Math.max(1, Math.round(dmdRaw*60/dt)) : 1;
+  const metBuf=[],ldBuf=[]; let metSum=0,ldSum=0,peakLoadInt=0,winSteps=0;
   const portDemand=allPorts.map(()=>0);
   let dSum=0,dPeak=0; for(let hh=0;hh<24;hh++){ const d=diurnalFactor(c,hh); dSum+=d; if(d>dPeak)dPeak=d; }
   const lamBase=(c.carsPerDay||0)/Math.max(0.001,dSum);
@@ -466,30 +534,84 @@ function simulate(c,light){
     const dlv=Math.min(req,supply);
     const thr=active>0 && req>supply+1e-6; if(thr) thrSteps++;
     const solarUse=Math.min(dlv,solarNow);
-    const gridUse=Math.min(dlv-solarUse, c.gridKW);
-    const battU=Math.max(0, dlv-solarUse-gridUse);
+    const peakTOU=(c.touStart<c.touEnd)?(hour>=c.touStart&&hour<c.touEnd):(hour>=c.touStart||hour<c.touEnd);
+    // ---- battery dispatch ----
+    // 'buffer' (default): the battery supplies ONLY what solar+grid cannot. Grid first, every hour.
+    // 'tou': inside the TOU peak window the battery also serves load AHEAD of the grid, paced so the
+    //        usable charge lasts to the end of the window, and it stops refilling from the grid until
+    //        the window closes. Outside the window it behaves exactly like 'buffer'.
+    // Both modes keep the same total supply, so throttling and the delivered power are untouched;
+    // only the split between grid and battery — and therefore WHEN the site buys energy — changes.
+    const need=Math.max(0, dlv-solarUse);
+    // A window with start == end is not a window: peakTOU reads "always on-peak" for it, which would
+    // leave the battery discharging around the clock and never refilling. Fall back to buffer duty.
+    const shift=c.battMode==='tou' && peakTOU && E>0 && +c.touStart!==+c.touEnd;
+    let battU=Math.max(0, need-c.gridKW);            // buffer duty — served in both modes
+    if(shift){ const paced=socE/Math.max(dt/3600, touHoursLeft(hour,c.touStart,c.touEnd));
+      battU=Math.min(battAvail, need, Math.max(battU, paced)); }
+    const gridUse=Math.max(0, need-battU);
+    // Billed peak the site reaches on LOAD alone, on the same interval the meter uses.
+    // Tracks gridUse, never gridDraw, so the recharge can never ratchet its own ceiling.
+    { const loadMean=(ldSum+gridUse)/dmdWin;
+      if(winSteps>=dmdWin-1 && loadMean>peakLoadInt) peakLoadInt=loadMean; }
+    // Ceiling for the metered draw this step. Capping only the window that ENDS here is not
+    // enough: a burst also sits inside the next dmdWin-1 windows, and nothing can claw it back
+    // once the load rises again. (Measured: an unconstrained 1250 kW burst the instant the TOU
+    // window closed billed 866 kW against a 669 kW load-only peak.) So the cap is per step —
+    // never draw more than the interval peak the load already bills. Where the load itself
+    // spikes above that, the headroom is zero and the draw is pure load, which the load-only
+    // bill already contains. Under instantaneous billing (dmdWin===1) this is the old rule.
+    const allowDraw=peakLoadInt;
     let rech=0, gridRech=0;
-    { const solarLeft=Math.max(0,solarNow-solarUse), gridLeft=Math.max(0,c.gridKW-gridUse), room=(1-soc)*E;
-      const want=Math.min(chgMax, room/(dt/3600)); rech=Math.min(want, solarLeft+gridLeft); gridRech=Math.max(0, rech-solarLeft); }
-    soc += ((rech*rte - battU)*(dt/3600))/E; soc=Math.max(floor,Math.min(1,soc)); minSoc=Math.min(minSoc,soc); dischg+=battU*(dt/3600);
+    { const solarLeft=Math.max(0,solarNow-solarUse), gridLeft=shift?0:Math.max(0,c.gridKW-gridUse), room=(1-soc)*E;
+      let want=Math.min(chgMax, room/(dt/3600));
+      // In 'tou' mode the battery must be full again by the next peak window, but refilling at the
+      // full C-rate the moment the window closes can move the site peak to 9pm — trading the demand
+      // charge for the energy saving. So the refill is capped by whichever of these is FASTER:
+      //   (a) an even spread over the whole off-peak stretch (the just-in-time pace), or
+      //   (b) the headroom under the billed peak the load already sets anyway.
+      // (b) matters because pacing alone is blind to whether a faster refill would raise the peak at
+      // all. On a grid-constrained site the afternoon load already pins the peak at the service
+      // limit, so the trickle bought no demand saving and only left the buffer emptier; on a
+      // grid-rich site the paced refill could itself set a NEW peak above what buffer mode reaches.
+      // freeFill is the EXACT interval allowance, not an instantaneous headroom: filling to an
+      // instantaneous ceiling for hours would raise the interval mean above what the load's own
+      // brief spike ever billed. Solar is never paced: free energy is always taken.
+      if(c.battMode==='tou' && !peakTOU && E>0 && +c.touStart!==+c.touEnd){
+        const hrs=Math.max(dt/3600, touHoursLeft(hour,c.touEnd,c.touStart));
+        const pacedFill=Math.max(0,(room/rte)/hrs)+solarLeft, freeFill=Math.max(0, allowDraw-gridUse);
+        want=Math.min(want, Math.max(pacedFill, freeFill));
+      }
+      rech=Math.min(want, solarLeft+gridLeft); gridRech=Math.max(0, rech-solarLeft); }
+    soc += E>0 ? ((rech*rte - battU)*(dt/3600))/E : 0; soc=Math.max(floor,Math.min(1,soc)); minSoc=Math.min(minSoc,soc); dischg+=battU*(dt/3600);
     const sc=req>0?dlv/req:0;
     for(let k=0;k<allPorts.length;k++){ const p=allPorts[k]; if(!p.busy) continue;
       const pc=portDemand[k]*sc, dE=pc*(dt/3600); energy+=dE;
-      p.soc+=dE/p.veh.pack; if(p.soc>=VFIX.vTarget){ p.busy=false; done++; } }
-    const gridDraw=gridUse+gridRech; peakGrid=Math.max(peakGrid,gridDraw); gridEnergy+=gridDraw*(dt/3600);
-    const peakTOU=(c.touStart<c.touEnd)?(hour>=c.touStart&&hour<c.touEnd):(hour>=c.touStart||hour<c.touEnd);
+      p.soc+=dE/p.veh.pack; if(p.soc>=p.target){ p.busy=false; done++; } }
+    const gridDraw=gridUse+gridRech;
+    if(gridDraw>peakInstant) peakInstant=gridDraw;
+    { const winMean=(metSum+gridDraw)/dmdWin;
+      if(winSteps>=dmdWin-1 && winMean>peakGrid) peakGrid=winMean;
+      metBuf.push(gridDraw); metSum+=gridDraw; while(metBuf.length>dmdWin-1) metSum-=metBuf.shift();
+      ldBuf.push(gridUse);   ldSum+=gridUse;   while(ldBuf.length>dmdWin-1) ldSum-=ldBuf.shift();
+      winSteps++; }
+    gridEnergy+=gridDraw*(dt/3600);
     energyCost+=gridDraw*(dt/3600)*(peakTOU?c.touPeakPrice:c.energyPrice);
     lostEnergy+=Math.max(0,req-dlv)*(dt/3600);
-    if(!light){ S.t.push(t);S.soc.push(soc*100);S.solar.push(solarUse);S.grid.push(gridUse);S.batt.push(battU);S.dlv.push(dlv);S.req.push(req);S.thr.push(thr?1:0);S.rech.push(rech);S.act.push(active); }
+    if(!light){ S.t.push(t);S.soc.push(soc*100);S.solar.push(solarUse);S.grid.push(gridUse);S.gridDraw.push(gridDraw);S.batt.push(battU);S.dlv.push(dlv);S.req.push(req);S.thr.push(thr?1:0);S.rech.push(rech);S.act.push(active); }
   }
+  // A run shorter than one demand interval never completes a window. Fall back to the
+  // instantaneous peak rather than reporting zero — conservative, and flagged in the readout.
+  const peakPartial = winSteps < dmdWin;
+  if(peakPartial) peakGrid=peakInstant;
   const refOut=busySteps?refSum/busySteps:0, usable=(1-floor)*E;
   const longevityH = refOut>c.gridKW ? usable/(refOut-c.gridKW) : Infinity;
   const dutyMax = refOut>0 ? Math.min(100, c.gridKW/refOut*100) : 100;
   return {S, dt, sysMax:c.siteCapKW, arrAvgHr:(c.carsPerDay||0)/24, arrPeakHr:lamBase*dPeak,
-    stats:{done, energy, thrPct:busySteps?thrSteps/busySteps*100:0, minSoc:minSoc*100, cycles:dischg/E,
+    stats:{done, energy, thrPct:busySteps?thrSteps/busySteps*100:0, minSoc:minSoc*100, cycles:E>0?dischg/E:0,
       util:actSum/steps/totalPorts*100, totalPorts, installedKW, peakActive, peakDemand,
       coincidence:installedKW?peakDemand/installedKW*100:0, refOut, longevityH, dutyMax},
-    econ:{gridEnergy, peakGrid, energyCost, demandCharge:peakGrid*c.demandCharge, lostEnergy}};
+    econ:{gridEnergy, peakGrid, peakInstant, demandIntervalMin:dmdRaw>0?dmdWin*dt/60:0, peakPartial, energyCost, demandCharge:peakGrid*c.demandCharge, lostEnergy}};
 }
 
 // ============================ RENDER ============================
@@ -554,6 +676,11 @@ function summary(){ const st=RES.stats,e=RES.econ;
   if(TAB==='lab'){ document.getElementById('econRow').classList.remove('hidden');
     document.getElementById('eGrid').innerHTML=(e.gridEnergy>=1000?(e.gridEnergy/1000).toFixed(1)+'<small> MWh</small>':Math.round(e.gridEnergy)+'<small> kWh</small>');
     document.getElementById('ePeak').innerHTML=Math.round(e.peakGrid)+'<small> kW</small>';
+    document.getElementById('ePeakSub').textContent = e.peakPartial
+      ? 'run shorter than one interval — showing the instant'
+      : e.demandIntervalMin>0
+        ? Math.round(e.demandIntervalMin)+'-min avg · instant '+Math.round(e.peakInstant)+' kW'
+        : 'instantaneous — not a real billing basis';
     document.getElementById('eEnergy').innerHTML='$'+Math.round(e.energyCost).toLocaleString();
     document.getElementById('eDemand').innerHTML='$'+Math.round(e.demandCharge).toLocaleString()+'<small>/mo</small>';
     document.getElementById('eLost').innerHTML=Math.round(e.lostEnergy)+'<small> kWh</small>';
@@ -609,7 +736,12 @@ function runSweep(){ const metric=document.getElementById('swMetric').value,cur=
 function finishSweep(pts,metric,cur){ document.getElementById('swResults').classList.remove('hidden');SW={pts,metric,cur};drawSweep(pts,metric,cur);
   const best=Math.min(...pts.map(p=>p.v)),worst=Math.max(...pts.map(p=>p.v)),thr=best+(worst-best)*0.05,knee=pts.find(p=>p.v<=thr)||pts[pts.length-1];
   const lbl={thr:'throttle',dem:'demand charge',grid:'grid draw',lost:'throttled-away'}[metric],unit={thr:'%',dem:' $/mo',grid:' kW',lost:' kWh'}[metric];
-  document.getElementById('swKnee').innerHTML='Diminishing returns at ≈ <b style="color:var(--accent-deep)">'+Math.round(knee.kWh)+' kWh</b> — P95 '+lbl+' '+Math.round(knee.v)+unit+'; more battery past this barely helps. <span style="color:var(--grid)">Current: '+Math.round(cur)+' kWh.</span>'; }
+  // Say plainly what the curve varied. With power derived from the C-rate a kWh sweep sweeps
+  // kW along with it, so the knee is NOT a pure energy answer — the reader has to know that.
+  const swBasis = (+cfg.bessPcsKW>0)
+    ? ' <span style="color:var(--muted)">Inverter held at '+Math.round(+cfg.bessPcsKW)+' kW, so this varies energy alone.</span>'
+    : ' <span style="color:var(--warn)">Power is derived from the C-rate ('+cfg.bessCrate+'C), so bigger packs also got more kW — this curve varies energy AND power. Set an inverter (PCS) limit to isolate energy.</span>';
+  document.getElementById('swKnee').innerHTML='Diminishing returns at ≈ <b style="color:var(--accent-deep)">'+Math.round(knee.kWh)+' kWh</b> — P95 '+lbl+' '+Math.round(knee.v)+unit+'; more battery past this barely helps. <span style="color:var(--grid)">Current: '+Math.round(cur)+' kWh.</span>'+swBasis; }
 function drawSweep(pts,metric,cur){ const c2=document.getElementById('swCv'),x2=c2.getContext('2d');
   const W=c2.clientWidth||600;c2.width=W*devicePixelRatio;c2.height=200*devicePixelRatio;x2.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
   const H=200,padL=54,padR=14,padT=14,padB=28,pw=W-padL-padR,ph=H-padT-padB;
@@ -656,9 +788,9 @@ function buildControls(){
     host.appendChild(wrap);
   }
 }
-function fmtVal(item,v){ if(item.fmt==='time'){ return v>=60?(v/60)+' h':v+' min'; } return v+(item.u?(' '+item.u):''); }
+function fmtVal(item,v){ if(item.fmt==='time'){ return v>=60?(v/60)+' h':v+' min'; } if(item.fmt==='pcs'&&+v<=0){ return 'from C-rate'; } return v+(item.u?(' '+item.u):''); }
 function buildPresets(){ const host=document.getElementById('presets'),ps=PRESETS[TAB];
-  host.innerHTML=Object.keys(ps).map((k,i)=>`<button data-p="${k}"${i===0?' class="on"':''}>${PNAMES[k]||k}</button>`).join('');
+  host.innerHTML=Object.keys(ps).map((k,i)=>`<button data-p="${k}"${k===DEFAULTP[TAB]?' class="on"':''}>${PNAMES[k]||k}</button>`).join('');
   host.querySelectorAll('button').forEach(b=>b.onclick=()=>{ host.querySelectorAll('button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     cfg=Object.assign(CFG[TAB], JSON.parse(JSON.stringify(PRESETS[TAB][b.dataset.p]))); buildControls(); run(); }); }
 function deselectPreset(){ document.querySelectorAll('#presets button').forEach(b=>b.classList.remove('on')); }
