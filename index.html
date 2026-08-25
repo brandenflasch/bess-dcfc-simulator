@@ -236,6 +236,7 @@
     <div class="summary econ-row hidden" id="econRow">
       <div class="s econ"><div class="lbl">Grid energy <span class="info" data-tip="Total energy imported from the utility over the run — both to cars directly and to recharge the battery.">i</span></div><div class="num" id="eGrid">—</div><small>cars + recharge</small></div>
       <div class="s econ"><div class="lbl">Billed demand <span class="info" data-tip="The number your demand charge is calculated on: the HIGHEST AVERAGE grid draw over the meter's interval (set it under Economics — 15 or 30 minutes on almost every tariff). It is not the instantaneous spike. DCFC load is spiky enough that the two differ a lot, and the instant is shown underneath because that is what sizes the service, the transformer and the switchgear.">i</span></div><div class="num" id="ePeak">—</div><small id="ePeakSub">sets demand charge</small></div>
+      <div class="s econ"><div class="lbl">Site efficiency <span class="info" data-tip="Share of everything the site took in (grid plus solar) that actually reached a car. Settled for the battery: a run that ends fuller than it started would otherwise read as lossy, and one that ends emptier would read above 100% because the site is dispensing energy banked before the run began. Settled, this is exactly dispensed / (dispensed + round-trip loss). The floor is your round-trip efficiency, reached only if EVERY kWh cycles through the pack; the more energy that goes grid-straight-to-cars, the closer to 100% it sits.">i</span></div><div class="num" id="eEff">—</div><small id="eEffSub">reaching cars</small></div>
       <div class="s econ"><div class="lbl">Energy cost <span class="info" data-tip="Grid energy × price over the window, using the time-of-use peak window for hours inside it.">i</span></div><div class="num" id="eEnergy">—</div><small>over the window</small></div>
       <div class="s econ"><div class="lbl">Demand charge <span class="info" data-tip="Monthly fee = peak grid draw × $/kW. A bigger or smarter battery lowers this by flattening the peak.">i</span></div><div class="num" id="eDemand">—</div><small>peak × $/kW</small></div>
       <div class="s econ"><div class="lbl">Throttled-away <span class="info" data-tip="Energy cars wanted but didn't get because the site was power-limited — a proxy for lost charging revenue.">i</span></div><div class="num" id="eLost">—</div><small>undelivered energy</small></div>
@@ -502,7 +503,7 @@ function simulate(c,light){
     p.soc=VFIX.vStart+rnd()*(span-dSoC); p.target=p.soc+dSoC; }
   const S={t:[],soc:[],solar:[],grid:[],gridDraw:[],batt:[],dlv:[],req:[],thr:[],rech:[],act:[]};
   let done=0,thrSteps=0,busySteps=0,energy=0,minSoc=soc,dischg=0,peakActive=0,peakDemand=0;
-  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0,curtailedSolar=0,auxEnergy=0;
+  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0,curtailedSolar=0,auxEnergy=0,solarUsed=0,rtLoss=0;
   // ---- demand metering ----
   // Utilities bill the demand charge on the highest AVERAGE power over a fixed interval
   // (15 or 30 min almost everywhere), not on an instantaneous spike. peakGrid is therefore a
@@ -606,7 +607,12 @@ function simulate(c,light){
       rech=Math.min(want, solarLeft+gridLeft); gridRech=Math.max(0, rech-solarLeft);
       // Solar the site could not use and does not export: neither served a car nor entered the
       // battery. Reported rather than silently dropped, so an oversized array is visible.
-      curtailedSolar += Math.max(0, solarLeft-Math.min(rech,solarLeft))*(dt/3600); }
+      curtailedSolar += Math.max(0, solarLeft-Math.min(rech,solarLeft))*(dt/3600);
+      // Solar the site actually consumed: straight to cars, plus whatever went into the pack.
+      solarUsed += (solarUse + Math.min(rech, solarLeft))*(dt/3600);
+      // Round-trip loss, taken on the charge side. Delivering battU from the pack therefore
+      // costs battU/rte at the meter, and the site balance closes on this term.
+      rtLoss += rech*(1-rte)*(dt/3600); }
     soc += E>0 ? ((rech*rte - battU)*(dt/3600))/E : 0; soc=Math.max(floor,Math.min(1,soc)); minSoc=Math.min(minSoc,soc); dischg+=battU*(dt/3600);
     const sc=req>0?dlv/req:0;
     for(let k=0;k<allPorts.length;k++){ const p=allPorts[k]; if(!p.busy) continue;
@@ -628,12 +634,22 @@ function simulate(c,light){
   // instantaneous peak rather than reporting zero — conservative, and flagged in the readout.
   const peakPartial = winSteps < dmdWin;
   if(peakPartial) peakGrid=peakInstant;
+  // Site efficiency: the share of everything the site took in that actually reached a car.
+  // It MUST be settled for the pack, or a run that ends fuller than it started reads as lossy and
+  // one that ends emptier reads above 100% — the site would be dispensing energy banked before
+  // t=0. Settled, this reduces exactly to dispensed/(dispensed+round-trip loss).
+  const packGain=(soc-c.startSoC/100)*E;
+  const takenIn=gridEnergy+solarUsed;
+  const settledIn=takenIn-packGain;
+  const efficiencyPct = settledIn>1e-9 ? Math.min(100, energy/settledIn*100) : null;
+  const rawEfficiencyPct = takenIn>1e-9 ? energy/takenIn*100 : null;
   const refOut=busySteps?refSum/busySteps:0, usable=(1-floor)*E;
   const longevityH = refOut>c.gridKW ? usable/(refOut-c.gridKW) : Infinity;
   const dutyMax = refOut>0 ? Math.min(100, c.gridKW/refOut*100) : 100;
   return {S, dt, sysMax:c.siteCapKW, arrAvgHr:(c.carsPerDay||0)/24, arrPeakHr:lamBase*dPeak,
     stats:{done, energy, thrPct:busySteps?thrSteps/busySteps*100:0, minSoc:minSoc*100, cycles:E>0?dischg/E:0,
       util:actSum/steps/totalPorts*100, totalPorts, installedKW, peakActive, peakDemand, curtailedSolar, auxEnergy,
+      solarUsed, rtLoss, packGain, efficiencyPct, rawEfficiencyPct,
       coincidence:installedKW?peakDemand/installedKW*100:0, refOut, longevityH, dutyMax},
     econ:{gridEnergy, peakGrid, peakInstant, demandIntervalMin:dmdRaw>0?dmdWin*dt/60:0, peakPartial, energyCost, demandCharge:peakGrid*c.demandCharge, lostEnergy}};
 }
@@ -700,6 +716,12 @@ function summary(){ const st=RES.stats,e=RES.econ;
   if(TAB==='lab'){ document.getElementById('econRow').classList.remove('hidden');
     document.getElementById('eGrid').innerHTML=(e.gridEnergy>=1000?(e.gridEnergy/1000).toFixed(1)+'<small> MWh</small>':Math.round(e.gridEnergy)+'<small> kWh</small>');
     document.getElementById('ePeak').innerHTML=Math.round(e.peakGrid)+'<small> kW</small>';
+    const st=RES.stats;
+    document.getElementById('eEff').innerHTML = st.efficiencyPct==null ? '—'
+      : st.efficiencyPct.toFixed(1)+'<small> %</small>';
+    document.getElementById('eEffSub').textContent = st.efficiencyPct==null ? 'reaching cars'
+      : (Math.round(st.rtLoss)+' kWh lost round-trip'
+         + (Math.abs(st.packGain)>1 ? ' · pack '+(st.packGain>0?'+':'')+Math.round(st.packGain)+' kWh, settled' : ''));
     document.getElementById('ePeakSub').textContent = e.peakPartial
       ? 'run shorter than one interval — showing the instant'
       : e.demandIntervalMin>0
