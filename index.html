@@ -236,7 +236,7 @@
     <div class="summary econ-row hidden" id="econRow">
       <div class="s econ"><div class="lbl">Grid energy <span class="info" data-tip="Total energy imported from the utility over the run — both to cars directly and to recharge the battery.">i</span></div><div class="num" id="eGrid">—</div><small>cars + recharge</small></div>
       <div class="s econ"><div class="lbl">Billed demand <span class="info" data-tip="The number your demand charge is calculated on: the HIGHEST AVERAGE grid draw over the meter's interval (set it under Economics — 15 or 30 minutes on almost every tariff). It is not the instantaneous spike. DCFC load is spiky enough that the two differ a lot, and the instant is shown underneath because that is what sizes the service, the transformer and the switchgear.">i</span></div><div class="num" id="ePeak">—</div><small id="ePeakSub">sets demand charge</small></div>
-      <div class="s econ"><div class="lbl">Site efficiency <span class="info" data-tip="Share of everything the site took in (grid plus solar) that actually reached a car. Settled for the battery: a run that ends fuller than it started would otherwise read as lossy, and one that ends emptier would read above 100% because the site is dispensing energy banked before the run began. Settled, this is exactly dispensed / (dispensed + round-trip loss). The floor is your round-trip efficiency, reached only if EVERY kWh cycles through the pack; the more energy that goes grid-straight-to-cars, the closer to 100% it sits.">i</span></div><div class="num" id="eEff">—</div><small id="eEffSub">reaching cars</small></div>
+      <div class="s econ"><div class="lbl">Site efficiency <span class="info" data-tip="Share of everything the site took in (grid plus solar) that actually reached a car. Settled for the battery: a run that ends fuller than it started would otherwise read as lossy, and one that ends emptier would read above 100% because the site is dispensing energy banked before the run began. Settled, this is exactly dispensed / (dispensed + cabinet loss + round-trip loss). Two losses compound and they are not alike: the cabinet takes its cut of EVERY kWh that reaches a car, while the round-trip only touches the share that actually cycled through the pack — typically about half. So the ceiling is your cabinet efficiency, reached only if nothing cycles, and the floor is cabinet x round-trip, reached only if everything does.">i</span></div><div class="num" id="eEff">—</div><small id="eEffSub">reaching cars</small></div>
       <div class="s econ"><div class="lbl">Energy cost <span class="info" data-tip="Grid energy × price over the window, using the time-of-use peak window for hours inside it.">i</span></div><div class="num" id="eEnergy">—</div><small>over the window</small></div>
       <div class="s econ"><div class="lbl">Demand charge <span class="info" data-tip="Monthly fee = peak grid draw × $/kW. A bigger or smarter battery lowers this by flattening the peak.">i</span></div><div class="num" id="eDemand">—</div><small>peak × $/kW</small></div>
       <div class="s econ"><div class="lbl">Throttled-away <span class="info" data-tip="Energy cars wanted but didn't get because the site was power-limited — a proxy for lost charging revenue.">i</span></div><div class="num" id="eLost">—</div><small>undelivered energy</small></div>
@@ -342,7 +342,7 @@ const BASE = {
   trafficMode:'poisson', carsPerDay:40, kwhPerSession:38, seed:7, horizonMin:120,
   diurnal:1, startHour:0, amPeak:8, peakHour:17, peakMult:2.5, nightStart:22, nightEnd:6, nightLevel:8, solarKW:0,
   demandCharge:18, energyPrice:0.16, touPeakPrice:0.42, touStart:16, touEnd:21,
-  demandIntervalMin:15
+  demandIntervalMin:15, cabinetEff:92
 };
 const PRESETS = {
   simple:{
@@ -400,6 +400,7 @@ const SPEC = {
     {k:'portsPerCharger',l:'Ports per charger',min:1,max:8,step:1,u:'',tip:'Ports per cabinet. Multiple cars on one cabinet split its power.'},
     {k:'connectorMaxKW',l:'Max per port',min:100,max:1500,step:25,u:'kW',tip:'Ceiling for a single port to one car, regardless of spare cabinet power.'},
     {k:'siteCapKW',l:'Site power limit',min:200,max:12000,step:100,u:'kW',tip:'Whole-site electrical limit across all chargers.'},
+    {k:'cabinetEff',l:'Cabinet efficiency (AC→DC)',min:80,max:100,step:1,u:'%',tip:'Conversion efficiency of the charger cabinet, applied to EVERY kWh that reaches a car whatever its source. This is the largest single loss at a real site, and the model had none of it: before this existed a grid-only site read exactly 100% efficient from meter to car. It is NOT the battery Round-trip efficiency, which only touches the share of energy that actually cycles through the pack — typically about half. Set 100% for a lossless cabinet and the old behaviour.'},
     {k:'solarKW',l:'On-site solar (peak)',min:0,max:3000,step:50,u:'kW',tip:'Peak PV output, modeled as a midday bell. Supplies cars first and recharges the battery free. Needs a ≥1-day window to show.'},
     {g:'Battery buffer', gtip:'Battery sizing, speed, efficiency, and operating limits.'},
     {k:'bessKWh',l:'Battery energy',min:50,max:10000,step:25,u:'kWh',tip:'Total usable buffer energy.'},
@@ -503,7 +504,7 @@ function simulate(c,light){
     p.soc=VFIX.vStart+rnd()*(span-dSoC); p.target=p.soc+dSoC; }
   const S={t:[],soc:[],solar:[],grid:[],gridDraw:[],batt:[],dlv:[],req:[],thr:[],rech:[],act:[]};
   let done=0,thrSteps=0,busySteps=0,energy=0,minSoc=soc,dischg=0,peakActive=0,peakDemand=0;
-  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0,curtailedSolar=0,auxEnergy=0,solarUsed=0,rtLoss=0;
+  let gridEnergy=0,energyCost=0,peakGrid=0,lostEnergy=0,actSum=0,refSum=0,peakInstant=0,curtailedSolar=0,auxEnergy=0,solarUsed=0,rtLoss=0,cabinetLoss=0;
   // ---- demand metering ----
   // Utilities bill the demand charge on the highest AVERAGE power over a fixed interval
   // (15 or 30 min almost everywhere), not on an instantaneous spike. peakGrid is therefore a
@@ -541,10 +542,17 @@ function simulate(c,light){
     // therefore sees a REDUCED grid allowance, which keeps gridUse <= gridKW by construction.
     const auxKW = E>0 ? Math.max(0, Math.min(+c.gridKW, (+c.bessAuxKW)||0)) : 0;
     const gridForLoad = Math.max(0, c.gridKW - auxKW);
+    // Cabinet conversion. Every kWh reaching a car crosses it, whatever the source, so the
+    // sources must put in dlv/cabEff to deliver dlv. From here on `supply`, `draw`, `need`,
+    // `solarUse`, `battU` and `gridUse` are all SOURCE side; `req`, `dlv` and the per-port
+    // numbers billed to a driver are CAR side. Mixing the two is the easy mistake here.
+    const cabEff=Math.max(0.5, Math.min(1, ((+c.cabinetEff)||100)/100));
     const supply=solarNow+gridForLoad+battAvail;
-    const dlv=Math.min(req,supply);
-    const thr=active>0 && req>supply+1e-6; if(thr) thrSteps++;
-    const solarUse=Math.min(dlv,solarNow);
+    const dlv=Math.min(req,supply*cabEff);
+    const draw=dlv/cabEff;
+    const thr=active>0 && req>supply*cabEff+1e-6; if(thr) thrSteps++;
+    const solarUse=Math.min(draw,solarNow);
+    cabinetLoss+=(draw-dlv)*(dt/3600);
     const peakTOU=(c.touStart<c.touEnd)?(hour>=c.touStart&&hour<c.touEnd):(hour>=c.touStart||hour<c.touEnd);
     // ---- battery dispatch ----
     // 'buffer' (default): the battery supplies ONLY what solar+grid cannot. Grid first, every hour.
@@ -553,7 +561,7 @@ function simulate(c,light){
     //        the window closes. Outside the window it behaves exactly like 'buffer'.
     // Both modes keep the same total supply, so throttling and the delivered power are untouched;
     // only the split between grid and battery — and therefore WHEN the site buys energy — changes.
-    const need=Math.max(0, dlv-solarUse);
+    const need=Math.max(0, draw-solarUse);
     // A window with start == end is not a window: peakTOU reads "always on-peak" for it, which would
     // leave the battery discharging around the clock and never refilling. Fall back to buffer duty.
     const shift=c.battMode==='tou' && peakTOU && E>0 && +c.touStart!==+c.touEnd;
@@ -635,6 +643,9 @@ function simulate(c,light){
   const peakPartial = winSteps < dmdWin;
   if(peakPartial) peakGrid=peakInstant;
   // Site efficiency: the share of everything the site took in that actually reached a car.
+  // Settled efficiency now carries BOTH losses: the cabinet conversion on every dispensed kWh,
+  // and the round-trip on the share that cycled through the pack. It reduces to
+  // dispensed/(dispensed + cabinetLoss + rtLoss).
   // It MUST be settled for the pack, or a run that ends fuller than it started reads as lossy and
   // one that ends emptier reads above 100% — the site would be dispensing energy banked before
   // t=0. Settled, this reduces exactly to dispensed/(dispensed+round-trip loss).
@@ -649,7 +660,7 @@ function simulate(c,light){
   return {S, dt, sysMax:c.siteCapKW, arrAvgHr:(c.carsPerDay||0)/24, arrPeakHr:lamBase*dPeak,
     stats:{done, energy, thrPct:busySteps?thrSteps/busySteps*100:0, minSoc:minSoc*100, cycles:E>0?dischg/E:0,
       util:actSum/steps/totalPorts*100, totalPorts, installedKW, peakActive, peakDemand, curtailedSolar, auxEnergy,
-      solarUsed, rtLoss, packGain, efficiencyPct, rawEfficiencyPct,
+      solarUsed, rtLoss, cabinetLoss, packGain, efficiencyPct, rawEfficiencyPct,
       coincidence:installedKW?peakDemand/installedKW*100:0, refOut, longevityH, dutyMax},
     econ:{gridEnergy, peakGrid, peakInstant, demandIntervalMin:dmdRaw>0?dmdWin*dt/60:0, peakPartial, energyCost, demandCharge:peakGrid*c.demandCharge, lostEnergy}};
 }
@@ -719,8 +730,10 @@ function summary(){ const st=RES.stats,e=RES.econ;
     const st=RES.stats;
     document.getElementById('eEff').innerHTML = st.efficiencyPct==null ? '—'
       : st.efficiencyPct.toFixed(1)+'<small> %</small>';
+    // Split the two losses. They behave differently: the cabinet takes a cut of EVERY dispensed
+    // kWh, the round-trip only of the share that cycled. Showing one total hides which lever moves.
     document.getElementById('eEffSub').textContent = st.efficiencyPct==null ? 'reaching cars'
-      : (Math.round(st.rtLoss)+' kWh lost round-trip'
+      : (Math.round(st.cabinetLoss)+' kWh cabinet · '+Math.round(st.rtLoss)+' kWh round-trip'
          + (Math.abs(st.packGain)>1 ? ' · pack '+(st.packGain>0?'+':'')+Math.round(st.packGain)+' kWh, settled' : ''));
     document.getElementById('ePeakSub').textContent = e.peakPartial
       ? 'run shorter than one interval — showing the instant'
